@@ -4,7 +4,7 @@
 
 One treasury, one manager, one token pair, one fixed-fee Uniswap v4 pool, one active position, one fixed period and a separate compensation budget. Treasury owns principal, idle assets and LP fees. Compensation purchases agreed service, not profit or manager effort.
 
-M1 passed only the isolated compatibility/accounting experiment. Full-product M2–M8 work is not complete. M0 candidate C1 is specified. Customer acceptance and preliminary economic justification remain pending. Documentation preparation is not a full-build or deployment authorization. Project ID supplied by the user: HK-UHI11-1275.
+M1 passed only the isolated compatibility/accounting experiment. Full-product M2–M8 work is not complete. M0 candidate C1 is specified. Customer acceptance and preliminary economic justification remain pending. The user authorizes a narrow experimental hackathon MVP on a local chain with mock assets while A1 and preliminary A2/A3 continue in parallel. Technical completion establishes neither customer acceptance, product-market fit nor economic advantage. Real-fund use and public deployment are outside this decision. Project ID supplied by the user: HK-UHI11-1275.
 
 Read only the next milestone, its applicable gates and relevant source/evidence. Older recurring-epoch proposals are superseded by this single-period plan. Missing feedback stays pending; a deadline or commit target cannot pass a gate.
 
@@ -22,7 +22,7 @@ Obtain dated feedback from at least one prospective treasury operator and one ma
 
 Compare passive liquidity/owner exit; bounded management with time-prorated retainer/simple escrow; and identical management with Unison service pay. Include an observer plus programmable settlement where it is a credible alternative. Match inventory, funded compensation, duration, fee settings and incoming order intentions. Allow fills/prices to differ when liquidity differs.
 
-**Pass:** reproducible results show a useful service/reconciliation/closeout advantage for the stated buyer, including negative cases. Lower manager pay alone creates no new joint economic value. Preliminary comparison feasibility and a defensible reason to test precede the full build; final comparison uses the complete lifecycle.
+**Pass:** reproducible results show a useful service/reconciliation/closeout advantage for the stated buyer, including negative cases. Lower manager pay alone creates no new joint economic value. Record preliminary comparison feasibility and a defensible reason to test while the local experiment proceeds. Final comparison uses the complete lifecycle.
 
 **Status:** partial M1 accounting evidence; no demonstrated complete-workflow superiority.
 
@@ -94,7 +94,7 @@ Direct PoolManager vault ownership; explicit vault checkpoint before liquidity c
 
 ## Priority 2 / M2: enforce the treasury's control and exit
 
-**Depends:** M0 gates and bounded M1. Implement AgreementVault acceptance/funding coordination and one immutable active agreement. Manager may only add/remove/rerange within agreed bounds using available inventory. Collected fees stay treasury-owned.
+**Experimental local dependency:** candidate C1 and replay of the bounded M1 foundation on the target toolchain. A1 and preliminary A2/A3 stay open in parallel. This user decision supersedes the sequencing note in the dated C1 document and preserves its candidate terms. Implement AgreementVault acceptance/funding coordination and one immutable active agreement. Manager may only add/remove/rerange within agreed bounds using available inventory. Collected fees stay treasury-owned.
 
 **Exit:** permitted adjustment succeeds; unauthorized caller/recipient/pool/range/amount/deadline paths fail. Rerange failure preserves old state atomically. Revocation blocks subsequent manager operations; treasury removes and receives assets without manager cooperation. No generic executor.
 
@@ -169,7 +169,8 @@ Inspect status/diff, check the change, stage explicit files, commit and push onl
 
 - Current: M0/A1 pending; A2/A3/A5 partial M1 evidence; full A4/A6 incomplete.
 - Latest documentation review: 23 November 2026. Historical evidence dates are preserved. Research form prepared/published; no customer acceptance inferred.
-- Next bounded task is to evaluate user-supplied private evidence from one treasury operator and one manager for the same C1 use case. Obtain their separate dated decisions, one reconciliation example with units and payer, and acceptable evidence and cost limits. If evidence is unavailable, keep the worksheet unsent pending explicit outreach instructions. Recalculate the comparison against the simplest arrangement that meets the stated job.
+- Next engineering task is pinned WSL setup and replay of the original M1 suite, corrected assessment and isolated mutation. Use the [replay instructions](experiments/m1/REPLAY.md) and record actual Linux results before adapting the foundation.
+- Parallel validation task is to evaluate user-supplied private evidence from one treasury operator and one manager for the same C1 use case. Obtain their separate dated decisions, one reconciliation example with units and payer, and acceptable evidence and cost limits. If evidence is unavailable, keep the worksheet unsent pending explicit outreach instructions. Recalculate the comparison against the simplest arrangement that meets the stated job.
 - Open decisions include buyer-approved depth, budget, duration, operational bounds and a suitable opening source. C1 proposes the conversion, contract interfaces and failure behavior. Full-product evidence is pending.
 - Record each substantive work session: terms/source revision, actual commands/results, commit/push status, evidence location, residual defects and next dependency-ready action.
 
@@ -180,3 +181,5 @@ Inspect status/diff, check the change, stage explicit files, commit and push onl
 
 - M0 validation preparation for C1 (`bc3d08f`). Prepared a private, unsent two-role review worksheet in the ignored local validation directory. The [public comparison and cost worksheet](docs/C1-COMPARISON.md) matches four arrangements across flat, interrupted and infeasible-recovery cases. It separates payer workloads, diagnostic M1 measurements, synthetic assumptions and missing inputs. The illustrative three-swap trader increment at 10 gwei/gas is 0.00182002 ETH. Other lifecycle costs and buyer benefit remain unknown.
 - Preparation checks covered scenario payouts and reserves, inventory bounds, cost units and sensitivities, local links and Git exclusion of the private directory. No customer responses, outreach or new M1 measurements. A1 and preliminary A2/A3 remain pending. The preparation and its checks are recorded together in the development commit titled “Prepare the C1 comparison and validation worksheets”.
+
+- Experimental-build decision and M1 reuse preparation. The [import record](experiments/m1/README.md) identifies five byte-preserved files, the two archive manifests, Windows evidence, reference Git objects, dependency licenses and material M1/C1 differences. Verified source and dependency pins, compiler hashes, local Forge version, import hashes and public-file scope. Published the isolated import in commit `b9629d9` on `origin/development`. Local links, Bash syntax and Forge config/remapping checks passed. WSL setup and replay are pending. No dependency installation, compilation, test execution or deployment took place in this session. The complete A4 closeout, A5 regression challenges, final A2/A3 measurement and A6 demonstration remain engineering/evidence gates.

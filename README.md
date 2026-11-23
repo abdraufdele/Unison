@@ -6,13 +6,13 @@ A proposed treasury-owned Uniswap v4 liquidity-service agreement. One treasury h
 
 ## Status
 
-Documentation starter; no full application, installation or deployment exists here. An isolated compatibility/accounting experiment passed a bounded test. Full acceptance/funding, refunds and closeout remain incomplete; customer acceptance and economic advantage are unproved.
+The narrow experimental MVP is local-only. The repository includes the verified source of the bounded M1 compatibility/accounting experiment. Its recorded execution used Windows. Full acceptance/funding, refunds and closeout remain incomplete; customer acceptance and economic advantage are unproved.
 
 Start with [PLAN.md](PLAN.md). Working rules: [AGENTS.md](AGENTS.md). Optional workflow: [docs/BUILDING.md](docs/BUILDING.md). Actual experimental result and limits: [docs/M1-STATUS.md](docs/M1-STATUS.md).
 
 ## Next task
 
-Write docs/SERVICE-SPEC.md with exact candidate terms and interfaces, obtain treasury/manager feedback and establish a provisional comparison/cost case before dependent product work. Retrieve and verify the preserved M1 evidence before reuse; the summary alone is not a runnable experiment.
+Replay M1 on WSL using pinned inputs. Evaluate customer feedback on C1 and preliminary comparison/cost evidence in parallel with local engineering. [M1 provenance and scope](experiments/m1/README.md)
 
 ## Scope and limits
 
@@ -20,4 +20,4 @@ Fixed-band liquidity-time measures a contractual position condition, not profit,
 
 ## Setup
 
-No application setup commands exist yet. Add pinned dependency manifests, verified build/test/reset instructions and a secret-free environment example when implemented. Preserve third-party licenses and distinguish reused code from new work.
+The experiment has a [pinned Linux setup and replay procedure](experiments/m1/REPLAY.md). Linux execution evidence is pending.

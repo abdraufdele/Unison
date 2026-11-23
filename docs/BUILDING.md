@@ -1,24 +1,23 @@
 # Build workflow
 
-Read [PLAN.md](../PLAN.md), then only the relevant spec, milestone and evidence. [AGENTS.md](../AGENTS.md) contains persistent rules. Historical handover material is excluded from this starter.
+Read [PLAN.md](../PLAN.md), then only the relevant spec, milestone and evidence. [AGENTS.md](../AGENTS.md) contains persistent rules. The [M1 import record](../experiments/m1/README.md) identifies the preserved evidence and source.
 
 ## Starting point
 
 M1 compatibility/accounting passed in a bounded experiment. Full-product acceptance, funding/refunds, customer fit and economic justification remain incomplete. Do not rebuild M1 from scratch or treat its tests as approval for the full product.
 
-Create docs/SERVICE-SPEC.md during M0. It is not present yet. Bind exact terms to acceptance; define rights, errors, interfaces, reference derivation and worked timelines. Do not label candidate parameters customer-approved.
+Use [candidate C1](SERVICE-SPEC.md) for the narrow local hackathon implementation. A1 and preliminary A2/A3 continue in parallel. Engineering checks, final cost measurement and reproducible demonstration requirements still apply.
 
 ## Initial prompt
 
 ```text
 Read AGENTS.md and PLAN.md. Inspect the current files and Git state.
 Complete the next authorized, dependency-ready task only.
-Reuse existing M1 evidence. If A1 or preliminary A2/A3 is unresolved,
-prepare the service specification, validation materials and bounded
-comparisons; do not scaffold dependent full-product work.
+Use the imported M1 source and pinned WSL replay as the engineering baseline.
+Keep customer acceptance and preliminary A2/A3 pending until evidence supports them.
 Distinguish proposals, implemented behavior and executed evidence.
 Run appropriate checks and record results, defects and next action.
-No outreach, public transactions or deployment without authorization.
+Use local mock assets. Outreach, real funds and public deployment need separate authorization.
 ```
 
 ## Continue
