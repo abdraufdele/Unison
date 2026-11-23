@@ -1,6 +1,6 @@
 # M1 compatibility and accounting experiment
 
-This directory preserves Unison's isolated 19 November 2026 experiment for local replay. Its contracts use unrestricted-mint mocks and an intentionally incomplete agreement lifecycle. The historical Windows run is the only executed result recorded here. The [WSL replay instructions](REPLAY.md) cover the original suite, six assessment tests and the omitted-checkpoint regression.
+This directory preserves Unison's isolated 19 November 2026 experiment for local replay. Its contracts use unrestricted-mint mocks and an intentionally incomplete agreement lifecycle. One native WSL host reproduced the archived Windows suite outcomes, accounting timeline and mutation failure. [WSL replay results](WSL-RESULT.md) · [Replay instructions](REPLAY.md)
 
 ## Origin and checks
 

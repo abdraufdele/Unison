@@ -1,6 +1,6 @@
 # Pinned WSL setup and M1 replay
 
-Run these steps **during the next setup/replay task** in Bash on WSL. This import session checked binaries, config, hashes and archive records. Linux compilation, dependency checkout and test results are pending. Use a local Forge test EVM with no RPC, wallet, broadcast or Anvil process.
+Run these commands in Bash on WSL. The [23 November WSL replay](WSL-RESULT.md) records the executed commands, dependency source and outcomes. Use a local Forge test EVM with no RPC, wallet, broadcast or Anvil process.
 
 ## Tools and inputs
 
@@ -80,4 +80,4 @@ grep -F '0 passed; 1 failed; 0 skipped' "$m1_evidence/mutant.txt"
 sha256sum -c SHA256SUMS
 ```
 
-Record actual versions, test counts, exit codes, the timeline’s seconds, paid and residual amounts, and the individual swap measurements. Retain failures privately and explain any platform difference before using a Linux result as evidence. The target Windows timeline was 200 qualifying seconds, 200 tokens paid and 100 left in escrow. Only a completed WSL replay can supply a Linux result.
+Record actual versions, test counts, exit codes, the timeline’s seconds, paid and residual amounts, and the individual swap measurements. Retain failures privately and explain any platform difference before using a Linux result as evidence. The target Windows timeline was 200 qualifying seconds, 200 tokens paid and 100 left in escrow. Compare a new run against the retained Windows and WSL results separately.
