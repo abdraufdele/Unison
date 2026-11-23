@@ -1,6 +1,6 @@
 # M1 compatibility/accounting status
 
-## Verified bounded result
+## Archived Windows result
 
 The isolated experiment executed on 19 November 2026 used real local Uniswap v4 PoolManager operations, a separate direct-core vault, authenticated hook callbacks and a separate compensation contract.
 
@@ -9,6 +9,10 @@ The isolated experiment executed on 19 November 2026 used real local Uniswap v4 
 - Controlled 300-second scenario: 200 qualifying seconds paid 200 mock payment tokens; 100 remained.
 - Omitting the pre-liquidity-change checkpoint caused the intended duration assertion to fail.
 - Controlled extra execution gas: outward 97,462; return 57,636; post-term 26,904. Diagnostic samples, not full receipt costs or a representative mean.
+
+## Native WSL replay · 23 November 2026
+
+The unchanged original and assessment suites compiled on WSL and exited 0 with 19 and six passes respectively. The isolated variant compiled, ran the single full-removal test and exited 1 at “full removal must preserve old 100 seconds”. The trace reconciled 200 qualifying seconds, 200 tokens paid and 100 retained. All five imported hashes matched before and after execution. [Commands, WSL measurements and evidence fingerprints](../experiments/m1/WSL-RESULT.md)
 
 ## Pins and source identity
 
@@ -29,4 +33,4 @@ No demonstrated customer acceptance, total-cost advantage, security audit, deplo
 
 Original source, runners, logs, assessment and manifests remain in the separate preserved research archive under research/2026-11-19-compatibility, alongside M1-ASSESSMENT.md and docs/UNISON-M1-EXPERIMENT.md. The working experiment folder is named Unison-compatibility, a sibling of the proposed implementation folder.
 
-The [M1 import record](../experiments/m1/README.md) documents source, assessment and dependency verification against the preserved archive. Five selected files are available with their original bytes. Follow the [pinned WSL replay procedure](../experiments/m1/REPLAY.md) before adapting them. The historical pass remains scoped to the Windows experiment.
+The [M1 import record](../experiments/m1/README.md) documents source, assessment and dependency verification against the preserved archive. Five selected files are available with their original bytes. Use the [pinned replay procedure](../experiments/m1/REPLAY.md) to repeat the bounded checks. Both executed results apply to the original experimental terms.

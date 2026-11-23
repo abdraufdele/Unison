@@ -86,7 +86,7 @@ Record evidence and residual risks at each milestone. This checklist does not es
 
 ## Priority 1 / M1: prove the plumbing with real v4 contracts
 
-**Status: bounded PASS, 19 November 2026.** See [M1 status and evidence requirements](docs/M1-STATUS.md). Reuse that evidence and source; do not restart M1 because older docs describe it as unstarted.
+**Status: bounded PASS on Windows, 19 November 2026, reproduced on native WSL, 23 November 2026.** See [M1 status and evidence requirements](docs/M1-STATUS.md). Reuse that evidence and source; do not restart M1 because older docs describe it as unstarted.
 
 Direct PoolManager vault ownership; explicit vault checkpoint before liquidity changes and refresh after; afterSwap observes third-party swaps. The narrow experiment uses beforeAddLiquidity admission control. No remove/donation/return-delta/dynamic-fee callbacks, canonical PositionManager NFT or Permit2 requirement.
 
@@ -169,7 +169,7 @@ Inspect status/diff, check the change, stage explicit files, commit and push onl
 
 - Current: M0/A1 pending; A2/A3/A5 partial M1 evidence; full A4/A6 incomplete.
 - Latest documentation review: 23 November 2026. Historical evidence dates are preserved. Research form prepared/published; no customer acceptance inferred.
-- Next engineering task is pinned WSL setup and replay of the original M1 suite, corrected assessment and isolated mutation. Use the [replay instructions](experiments/m1/REPLAY.md) and record actual Linux results before adapting the foundation.
+- Next engineering task is the first local M2 slice under candidate C1. Bind treasury and manager acceptance to the current terms revision, clear both acceptances on edits, and test that stale or incomplete acceptances cannot authorize funding. Keep the replayed M1 fixture available as a regression baseline.
 - Parallel validation task is to evaluate user-supplied private evidence from one treasury operator and one manager for the same C1 use case. Obtain their separate dated decisions, one reconciliation example with units and payer, and acceptable evidence and cost limits. If evidence is unavailable, keep the worksheet unsent pending explicit outreach instructions. Recalculate the comparison against the simplest arrangement that meets the stated job.
 - Open decisions include buyer-approved depth, budget, duration, operational bounds and a suitable opening source. C1 proposes the conversion, contract interfaces and failure behavior. Full-product evidence is pending.
 - Record each substantive work session: terms/source revision, actual commands/results, commit/push status, evidence location, residual defects and next dependency-ready action.
@@ -183,3 +183,5 @@ Inspect status/diff, check the change, stage explicit files, commit and push onl
 - Preparation checks covered scenario payouts and reserves, inventory bounds, cost units and sensitivities, local links and Git exclusion of the private directory. No customer responses, outreach or new M1 measurements. A1 and preliminary A2/A3 remain pending. The preparation and its checks are recorded together in the development commit titled “Prepare the C1 comparison and validation worksheets”.
 
 - Experimental-build decision and M1 reuse preparation. The [import record](experiments/m1/README.md) identifies five byte-preserved files, the two archive manifests, Windows evidence, reference Git objects, dependency licenses and material M1/C1 differences. Verified source and dependency pins, compiler hashes, local Forge version, import hashes and public-file scope. Published the isolated import in commit `b9629d9` on `origin/development`. Local links, Bash syntax and Forge config/remapping checks passed. WSL setup and replay are pending. No dependency installation, compilation, test execution or deployment took place in this session. The complete A4 closeout, A5 regression challenges, final A2/A3 measurement and A6 demonstration remain engineering/evidence gates.
+
+- Native WSL replay, 23 November 2026. Published the [replay report](experiments/m1/WSL-RESULT.md) at `f0a4893` on `origin/development`. Verified both dependency revisions, clean checkouts, compiler hash and effective Forge settings. The original and corrected assessment suites passed 19 and six tests with exit 0. The single omitted-checkpoint mutant compiled and exited 1 at the intended accounting assertion. At expiry, the trace reconciled 200 qualifying seconds, 200 paid and 100 left in escrow. All five imported hashes passed before and after. Private commands, raw outputs and exit codes remain in the ignored evidence directory. A1 and preliminary A2/A3 are pending. C1 acceptance, funding and complete closeout still require their own implementation and tests.
