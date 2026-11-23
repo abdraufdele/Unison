@@ -4,7 +4,7 @@
 
 One treasury, one manager, one token pair, one fixed-fee Uniswap v4 pool, one active position, one fixed period and a separate compensation budget. Treasury owns principal, idle assets and LP fees. Compensation purchases agreed service, not profit or manager effort.
 
-M1 passed only the isolated compatibility/accounting experiment. Full-product M2–M8 work is not complete. M0 service terms, customer acceptance and preliminary economic justification remain pending. Documentation preparation is not a full-build or deployment authorization. Project ID supplied by the user: HK-UHI11-1275.
+M1 passed only the isolated compatibility/accounting experiment. Full-product M2–M8 work is not complete. M0 candidate C1 is specified. Customer acceptance and preliminary economic justification remain pending. Documentation preparation is not a full-build or deployment authorization. Project ID supplied by the user: HK-UHI11-1275.
 
 Read only the next milestone, its applicable gates and relevant source/evidence. Older recurring-epoch proposals are superseded by this single-period plan. Missing feedback stays pending; a deadline or commit target cannot pass a gate.
 
@@ -73,7 +73,8 @@ Record evidence and residual risks at each milestone. This checklist does not es
 
 ## Priority 0 / M0: decide exactly what job is purchased
 
-**Status: pending.** Write docs/SERVICE-SPEC.md before dependent full-product work:
+**Status: candidate specified, gate pending.** [Service specification C1](docs/SERVICE-SPEC.md) covers the proposed agreement. The M0 review covers these requirements.
+
 - Accepted identities, fixed recipients, token/pool terms, duration, funding, activation deadline and budget.
 - Exact band/reference derivation, min L, width/tick/amount/deadline/frequency limits and token decimals.
 - Terms revision and acceptance binding; draft edits invalidate acceptance; activation checks current acceptance and funding.
@@ -164,8 +165,11 @@ Inspect status/diff, check the change, stage explicit files, commit and push onl
 
 - Current: M0/A1 pending; A2/A3/A5 partial M1 evidence; full A4/A6 incomplete.
 - Latest documentation review: 23 November 2026. Historical evidence dates are preserved. Research form prepared/published; no customer acceptance inferred.
-- Next: exact service specification and buyer/manager feedback; provisional simpler-alternative/cost decision.
-- Open: customer-approved numerical terms, opening-reference conversion, full-product interfaces and failure behavior; retain actual M1 pins as experiment provenance.
+- Next bounded task is a private, unsent C1 review worksheet for one treasury use case. Give both roles the same revision, an interrupted-service and closeout calculation, and questions on passive pay, inventory risk, termination and costs. Include a matched alternatives table and an assumed workload by payer to identify the buyer benefit needed to break even. Record unknowns for review. Outreach needs separate instruction.
+- Open decisions include buyer-approved depth, budget, duration, operational bounds and a suitable opening source. C1 proposes the conversion, contract interfaces and failure behavior. Full-product evidence is pending.
 - Record each substantive work session: terms/source revision, actual commands/results, commit/push status, evidence location, residual defects and next dependency-ready action.
 
 - Repository setup, 23 November 2026: public abdraufdele/Unison created; bootstrap commit e87b16b published on main. Development branch development tracks origin/development. Repository-local author: abdraufdele <apexnaijatv124@gmail.com>. WSL Git uses the existing authenticated GitHub CLI credential helper. No credentials are stored in tracked files. This records Git setup, not a product acceptance pass.
+
+- M0 specification session, 23 November 2026. Published [C1](docs/SERVICE-SPEC.md) in commit `bc3d08f` on `origin/development` and verified the live branch with `git ls-remote`. The agreement uses mock terms for review. Reviewed actor permissions, fixed recipients, state reachability from Draft through each terminal reason, and separate exit/claim/refund rights. Local Python checks reconciled the five settlement examples, zero/funded cancellation, cumulative rounding, prior claims and refund order. Decimal calculations checked the aligned opening band, seed inventory and illustrative trade. Relative links resolved and the staged spec passed `git diff --cached --check`.
+- A1 still needs dated feedback from both roles accepting the same revision for a stated use case. Preliminary A2 needs a credible service or reconciliation advantage over passive LP, a retainer and observer-based settlement. Preliminary A3 needs buyer-specific benefit against estimated total costs, including trader and operator costs. No role feedback or comparison results were obtained in this session. M0 remains open and the bounded M1 result stands.
