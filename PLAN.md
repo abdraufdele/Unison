@@ -167,3 +167,5 @@ Inspect status/diff, check the change, stage explicit files, commit and push onl
 - Next: exact service specification and buyer/manager feedback; provisional simpler-alternative/cost decision.
 - Open: customer-approved numerical terms, opening-reference conversion, full-product interfaces and failure behavior; retain actual M1 pins as experiment provenance.
 - Record each substantive work session: terms/source revision, actual commands/results, commit/push status, evidence location, residual defects and next dependency-ready action.
+
+- Repository setup, 23 November 2026: public abdraufdele/Unison created; bootstrap commit e87b16b published on main. Development branch codex/build tracks origin/codex/build. Repository-local author: abdraufdele <apexnaijatv124@gmail.com>. WSL Git uses the existing authenticated GitHub CLI credential helper. No credentials are stored in tracked files. This records Git setup, not a product acceptance pass.

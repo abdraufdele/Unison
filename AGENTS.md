@@ -15,3 +15,7 @@ Read PLAN.md, then only the relevant spec, milestone and evidence. Read docs/BUI
 - Start thin frontend reads after M4; connect tested writes after M5; polish after M6. Show contract-backed state and distinguish estimates.
 - Record actual results, unresolved decisions, commit/push status and next task in PLAN.md. Do not repeatedly read unrelated history or delegate without authorization.
 - Explain plainly and proceed within authorized scope. Documentation setup does not authorize dependent implementation. New local projects default outside OneDrive; do not move existing archives.
+
+## Configured GitHub workflow
+
+Public repository: https://github.com/abdraufdele/Unison. Remote: origin. Work on codex/build, tracking origin/codex/build; main is the bootstrap/default branch. The user authorizes routine checked commits and pushes of completed Unison work to this development branch. Do not repeatedly request the established destination or approval for these pushes. Merges, force-pushes, unrelated publication and deployment remain outside this authorization.
