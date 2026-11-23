@@ -18,4 +18,4 @@ Read PLAN.md, then only the relevant spec, milestone and evidence. Read docs/BUI
 
 ## Configured GitHub workflow
 
-Public repository: https://github.com/abdraufdele/Unison. Remote: origin. Work on codex/build, tracking origin/codex/build; main is the bootstrap/default branch. The user authorizes routine checked commits and pushes of completed Unison work to this development branch. Do not repeatedly request the established destination or approval for these pushes. Merges, force-pushes, unrelated publication and deployment remain outside this authorization.
+Public repository: https://github.com/abdraufdele/Unison. Remote: origin. Work on development, tracking origin/development; main is the bootstrap/default branch. The user authorizes routine checked commits and pushes of completed Unison work to this development branch. Do not repeatedly request the established destination or approval for these pushes. Merges, force-pushes, unrelated publication and deployment remain outside this authorization.
