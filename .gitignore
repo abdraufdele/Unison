@@ -1,0 +1,19 @@
+# Secrets and private local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Dependencies, build and test output
+node_modules/
+out/
+cache/
+broadcast/
+dist/
+coverage/
+*.log
+
+# Machine-local files
+.DS_Store
+Thumbs.db
