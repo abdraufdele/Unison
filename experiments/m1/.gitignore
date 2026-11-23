@@ -1,0 +1,9 @@
+/vendor/
+/lib/
+/out/
+/cache/
+/mutation-*/
+/solc-*.exe
+/*.zip
+/compiler-*
+/evidence/

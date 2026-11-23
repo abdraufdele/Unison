@@ -29,4 +29,4 @@ No demonstrated customer acceptance, total-cost advantage, security audit, deplo
 
 Original source, runners, logs, assessment and manifests remain in the separate preserved research archive under research/2026-11-19-compatibility, alongside M1-ASSESSMENT.md and docs/UNISON-M1-EXPERIMENT.md. The working experiment folder is named Unison-compatibility, a sibling of the proposed implementation folder.
 
-This summary alone is NOT a reproducibility package. Before relying on M1 in the implementation, retrieve the preserved evidence, verify hashes/pins and import selected source/tests under an explicit reuse record; preserve failures and licensing. Do not recreate unsupported passing claims from this text.
+The [M1 import record](../experiments/m1/README.md) documents source, assessment and dependency verification against the preserved archive. Five selected files are available with their original bytes. Follow the [pinned WSL replay procedure](../experiments/m1/REPLAY.md) before adapting them. The historical pass remains scoped to the Windows experiment.

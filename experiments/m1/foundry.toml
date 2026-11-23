@@ -1,0 +1,19 @@
+[profile.default]
+src = "src"
+test = "test"
+out = "out"
+cache_path = "cache"
+libs = ["vendor"]
+remappings = ["v4-core/=vendor/v4-core/", "solmate/=vendor/v4-core/lib/solmate/"]
+solc_version = "0.8.26"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 200
+via_ir = true
+dynamic_test_linking = false
+gas_limit = 1000000000
+code_size_limit = 200000
+
+[profile.default.fuzz]
+runs = 128
+seed = "0x19112026"
