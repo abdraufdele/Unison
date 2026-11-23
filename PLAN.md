@@ -149,6 +149,10 @@ Thin reads start after M4; tested writes connect as M5 paths stabilize. Polish a
 
 Verify another developer's fresh setup and two reset replays. Record a human-narrated video under the supplied five-minute limit. Confirm public repo/branch and submission access. No invented audit, novelty, customer, profit or prize claims.
 
+### Before integrating the submission branch
+
+Remind the user to choose **Create a merge commit** when merging development into main. Preserve original individual commits and IDs; no squash, rebase-and-merge, backdating or force-push. Obtain explicit merge authorization. Record the development tip before merging and verify it is an ancestor of the resulting main; inspect the commit list and default branch before submission. No merge is authorized by recording this reminder.
+
 ## Schedule and scope cuts
 
 Use dependencies, not stale target dates, to choose work. Supplied organiser deadlines (Africa/Lagos): progress updates 24 November and 1 December 2026 at 08:59; final submission 4 December 2026 at 08:59; Demo Day 11 December. These dates are user-supplied, not a freshly verified extension.
