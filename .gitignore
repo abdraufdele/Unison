@@ -17,3 +17,6 @@ coverage/
 # Machine-local files
 .DS_Store
 Thumbs.db
+
+# Unsent validation materials and private responses
+/.local/validation/
