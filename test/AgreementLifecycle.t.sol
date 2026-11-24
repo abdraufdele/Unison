@@ -57,7 +57,7 @@ contract AgreementLifecycleTest is ActiveFixture {
         vault.activate(h);
         vm.expectRevert(AgreementVault.AlreadyActivated.selector);
         vault.cancel();
-        vm.expectRevert(CompensationEscrow.NotCancelled.selector);
+        vm.expectRevert(CompensationEscrow.NotTerminal.selector);
         escrow.refund();
         vm.expectRevert(AgreementVault.NotCancelled.selector);
         vault.exitLiquidity();
@@ -301,9 +301,12 @@ contract AgreementLifecycleTest is ActiveFixture {
         vm.expectRevert(AgreementVault.AlreadyActivated.selector);
         vm.prank(DONOR);
         vault.cancel();
-        require(!vault.cancelled() && escrow.refundable() == 0 && vault.state() == AgreementVault.State.Terminated);
-        vm.expectRevert(CompensationEscrow.NotCancelled.selector);
+        require(
+            !vault.cancelled() && escrow.refundable() == 96_666_667 && vault.state() == AgreementVault.State.Terminated
+        );
+        vm.expectRevert(abi.encodeWithSelector(ExactToken.TransferFailed.selector, address(b)));
         escrow.refund();
+        require(escrow.refunded() == 0 && escrow.reserved() == 3_333_333);
     }
 
     function testExactExpiryExitBeforeDelayedFinalization() public {
@@ -335,8 +338,7 @@ contract AgreementLifecycleTest is ActiveFixture {
         require(
             vault.recordedStop() == end && vault.state() == AgreementVault.State.Expired && escrow.refundable() == 0
         );
-        vm.expectRevert(CompensationEscrow.NotCancelled.selector);
-        escrow.refund();
+        require(escrow.refund() == 0 && escrow.reserved() == BUDGET);
         require(b.balanceOf(address(escrow)) == BUDGET && escrow.refunded() == 0);
     }
 

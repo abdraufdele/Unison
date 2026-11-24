@@ -5,7 +5,6 @@ import {AgreementVault} from "../src/AgreementVault.sol";
 import {IOpeningReferenceAdapter} from "../src/IOpeningReferenceAdapter.sol";
 import {CustodyLock} from "../src/ExactToken.sol";
 import {Operation, ServiceHook} from "../src/ServiceHook.sol";
-import {CompensationEscrow} from "../src/CompensationEscrow.sol";
 import {ActiveFixture} from "./fixtures/ActiveFixture.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
@@ -549,8 +548,7 @@ contract ManagerOperationsTest is ActiveFixture {
                 && beforeExit.coreB - b.balanceOf(address(core)) == outB + feeB
         );
         faults.clearMockedCalls();
-        vm.expectRevert(CompensationEscrow.NotCancelled.selector);
-        escrow.refund();
+        require(escrow.refund() == 90_000_000 && escrow.reserved() == 10_000_000);
     }
 
     function testTerminationOrderedFirstRejectsOtherwiseExecutableOperations() public {
@@ -578,7 +576,6 @@ contract ManagerOperationsTest is ActiveFixture {
         require(_position(-240, 240, 2) == 0 && vault.lastAdjustment() == 10_299);
         vm.expectRevert(AgreementVault.AlreadyActivated.selector);
         vault.cancel();
-        vm.expectRevert(CompensationEscrow.NotCancelled.selector);
-        escrow.refund();
+        require(escrow.refund() == 0 && escrow.reserved() == BUDGET);
     }
 }

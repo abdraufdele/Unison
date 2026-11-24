@@ -63,10 +63,10 @@ contract AgreementVaultCancellationTest is CustodyFixture {
     }
 
     function testRecoveryRequiresCancellationAndPrincipalRequiresTreasury() public {
-        vm.expectRevert(CompensationEscrow.NotCancelled.selector);
+        vm.expectRevert(CompensationEscrow.NotTerminal.selector);
         escrow.refund();
         _fund();
-        vm.expectRevert(CompensationEscrow.NotCancelled.selector);
+        vm.expectRevert(CompensationEscrow.NotTerminal.selector);
         escrow.refund();
         vm.expectRevert(AgreementVault.NotCancelled.selector);
         vault.withdrawIdle();

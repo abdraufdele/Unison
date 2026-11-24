@@ -23,3 +23,6 @@ Thumbs.db
 
 # Isolated service-clock mutation and native replay logs
 /.local/m3/
+
+# Isolated reserve mutation and native settlement evidence
+/.local/m4/

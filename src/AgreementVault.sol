@@ -552,6 +552,12 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         if (_actualLiquidity() != 0) revert PositionMismatch();
     }
 
+    /// @notice Only a successfully activated agreement exposes its authenticated service hook.
+    function settlementContext() external view returns (ServiceHook clock, uint256 duration, bool terminal) {
+        if (scheduledEnd == 0) return (ServiceHook(address(0)), 0, cancelled);
+        return (ServiceHook(bindings.hook), scheduledEnd - start, effectiveStop() != 0);
+    }
+
     function effectiveStop() public view returns (uint256) {
         return state() == State.Expired ? scheduledEnd : recordedStop;
     }
