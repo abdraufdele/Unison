@@ -63,4 +63,4 @@ python3 scripts/check_opening_grid.py
 | ServiceHook | 4,738 | 5,155 | 5,283 |
 | OpeningQuote | 4,895 | 4,921 | 4,921 |
 
-The vault, escrow, hook and helper have nine, four, four and zero static ABI constructor words respectively. All four fit the normal runtime and initcode limits. The vault retains 685 runtime bytes. The size build, native formatting, opening grid and five [original M1 hashes](../experiments/m1/SHA256SUMS) passed with exit 0. M5 still requires the broader closeout review and invariant challenges. Customer acceptance, comparative economics and a reproducible full demonstration remain open.
+The vault, escrow, hook and helper have nine, four, four and zero static ABI constructor words respectively. All four fit the normal runtime and initcode limits. The vault retains 685 runtime bytes. The size build, native formatting, opening grid and five [original M1 hashes](../experiments/m1/SHA256SUMS) passed with exit 0. The subsequent [M5 closeout review](CLOSEOUT.md) records the broader lifecycle reconciliation and remaining targeted mutations. Customer acceptance, comparative economics and a reproducible full demonstration remain open.

@@ -12,7 +12,7 @@ Start with [PLAN.md](PLAN.md). Working rules: [AGENTS.md](AGENTS.md). Optional w
 
 ## Next task
 
-Complete the M5 closeout review across terminal states, repeated operations and failure recovery, and challenge revocation and principal-exit independence. Evaluate customer feedback on C1 and preliminary comparison/cost evidence in parallel with local engineering. [M1 provenance and scope](experiments/m1/README.md)
+Run the M6 matched comparison and measure costs across the full lifecycle. The M5 closeout review passed for local C1, and the M4 read interfaces stayed stable. Evaluate customer feedback on C1 and preliminary comparison/cost evidence in parallel with local engineering. [M1 provenance and scope](experiments/m1/README.md)
 
 ## Scope and limits
 
@@ -38,7 +38,7 @@ forge test --offline --use ~/.svm/0.8.26/solc-0.8.26 -vv
 
 The expected native compiler SHA-256 is `d5f23436f443edb85d8e76906d12f0a86ce0490e7663a9e608efeb7a93f149ef`. The isolated M1 suites have their own dependencies and replay commands. [Pinned M1 replay procedure](experiments/m1/REPLAY.md) and [WSL replay result](experiments/m1/WSL-RESULT.md).
 
-The [M4 settlement report](docs/COMPENSATION.md) records payout interfaces, exact base-unit transfers, failure recovery and reserve-mutation replay. The [service-clock evidence](docs/SERVICE-CLOCK.md) covers third-party swap intervals, stateful reconciliation, terminal freezing and the ordering mutation. The [manager-operations evidence](docs/MANAGER-OPERATIONS.md) covers operation bounds, the opening-quote helper, atomic rollback, and independently reconciled principal and LP fees. The [activation and principal recovery report](docs/ACTIVATION-RECOVERY.md) covers the product hook, real vault-owned position, independent exit and the M2 custody boundary. The [activation preflight report](docs/ACTIVATION-PREFLIGHT.md) records the core reads, seed deltas and limits of the fixture. The [opening-reference implementation note](docs/OPENING-REFERENCE.md) gives the input bounds, rounding proof, mock trust assumptions, upstream credits and how to use the result at activation.
+The [M5 closeout matrix](docs/CLOSEOUT.md) maps the terminal rights and callback checks to executed tests, including the stateful balance reconciliation and mutation results. The [M4 settlement report](docs/COMPENSATION.md) records payout interfaces, exact base-unit transfers, failure recovery and reserve-mutation replay. The [service-clock evidence](docs/SERVICE-CLOCK.md) covers third-party swap intervals, stateful reconciliation, terminal freezing and the ordering mutation. The [manager-operations evidence](docs/MANAGER-OPERATIONS.md) covers operation bounds, the opening-quote helper, atomic rollback, and independently reconciled principal and LP fees. The [activation and principal recovery report](docs/ACTIVATION-RECOVERY.md) covers the product hook, real vault-owned position, independent exit and the M2 custody boundary. The [activation preflight report](docs/ACTIVATION-PREFLIGHT.md) records the core reads, seed deltas and limits of the fixture. The [opening-reference implementation note](docs/OPENING-REFERENCE.md) gives the input bounds, rounding proof, mock trust assumptions, upstream credits and how to use the result at activation.
 
 ## Local custody fixture
 
