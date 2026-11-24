@@ -49,11 +49,13 @@ def word(n):
 
 
 @contextmanager
-def chain():
+def chain(*, viewer=False):
     with tempfile.TemporaryDirectory(prefix="unison-m6-") as d:
         ipc = Path(d) / "run.ipc"
         cmd = ["anvil", "--quiet", "--host", "127.0.0.1", "--port", "0", "--ipc", str(ipc),
                "--hardfork", "cancun", "--chain-id", "31337", "--timestamp", "1000"]
+        if viewer:
+            cmd.extend(["--mnemonic-random", "12", "--no-cors"])
         with subprocess.Popen(cmd, stdout=subprocess.DEVNULL) as node:
             try:
                 deadline = time.monotonic() + 10
@@ -131,7 +133,7 @@ class Run:
     def balances(self, who):
         return tuple(t.functions.balanceOf(who).call() for t in (self.a, self.b))
 
-    def setup(self, arm):
+    def setup(self, arm, *, agreement_id=word(1), funded_only=False):
         self.arm, self.case = arm, "setup"
         self.edge, self.salt = 120, 1
         self.esc = self.hook = None
@@ -156,7 +158,7 @@ class Run:
             self.tx("treasury", "deploy ServiceHook", factory.functions.install(word(n), addr, pm, a, b), 1904)
             self.hook = self.contract("ServiceHook", to_checksum_address(digest[-20:]))
             bindings = (pm, a, b, self.hook.address, self.esc.address, adapter.address, adapter.address)
-            self.v = self.deploy("AgreementVault", word(1), manager, bindings, at=1905)
+            self.v = self.deploy("AgreementVault", agreement_id, manager, bindings, at=1905)
             assert self.v.address == addr and self.hook.functions.vault().call() == addr
             obs = (adapter.address, a, b, 6, 6, 8, 100_000_000, 1981, True)
             self.tx("treasury", "publish opening", adapter.functions.publish(obs), 1981)
@@ -174,6 +176,8 @@ class Run:
             for t, role in enumerate(("treasury", "manager"), 1985):
                 self.tx(role, "accept", self.v.functions.accept(self.h), t)
             self.tx("treasury", "fund", self.v.functions.fund(self.h), 1990)
+            if funded_only:
+                return
             self.tx("treasury", "activate", self.v.functions.activate(self.h), START)
         else:
             self.tx("treasury", "seed", self.v.functions.seed(), START)
