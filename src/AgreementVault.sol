@@ -6,6 +6,11 @@ import {CustodyLock, ExactToken, IC1Token} from "./ExactToken.sol";
 
 import {IOpeningReferenceAdapter} from "./IOpeningReferenceAdapter.sol";
 import {OpeningBand} from "./OpeningBand.sol";
+import {SeedPool} from "./SeedPool.sol";
+import {Currency} from "v4-core/src/types/Currency.sol";
+import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
+import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
+import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 
 /// @notice C1 consent, funding and pre-activation cancellation.
 contract AgreementVault is CustodyLock {
@@ -49,6 +54,16 @@ contract AgreementVault is CustodyLock {
         uint32 maxExecutionWindow;
     }
 
+    struct ActivationPreflight {
+        IOpeningReferenceAdapter.Observation observation;
+        int24 lower;
+        int24 upper;
+        SeedPool.Quote seed;
+        uint256 available0;
+        uint256 available1;
+        uint256 escrowBalance;
+    }
+
     struct Terms {
         uint256 chainId;
         address vault;
@@ -90,6 +105,12 @@ contract AgreementVault is CustodyLock {
     error TermsClosed();
     error NotAccepted();
     error InvalidEscrow();
+    error NotFunded();
+    error WrongChain();
+    error IncompleteFunding();
+    error InsufficientCustody(address custodian, address token, uint256 available, uint256 required);
+    error InvalidSeedLiquidity();
+    error SeedInputLimit();
     error UnreadableReference();
     error ReferenceMismatch();
     error InvalidObservation();
@@ -173,14 +194,7 @@ contract AgreementVault is CustodyLock {
         _checkHash(expectedHash);
         if (state() != State.Accepted) revert NotAccepted();
 
-        CompensationEscrow escrow = CompensationEscrow(bindings.escrow);
-        if (
-            address(escrow).codehash != keccak256(type(CompensationEscrow).runtimeCode)
-                || escrow.vault() != address(this) || address(escrow.paymentToken()) != bindings.token1
-                || escrow.treasuryRecipient() != treasury || escrow.managerRecipient() != manager
-                || escrow.fundedBudget() != 0 || escrow.refunded() != 0
-        ) revert InvalidEscrow();
-
+        CompensationEscrow escrow = _checkedEscrow(0);
         Parameters memory p = _c1Parameters();
         IC1Token token0 = IC1Token(bindings.token0);
         IC1Token token1 = IC1Token(bindings.token1);
@@ -207,6 +221,16 @@ contract AgreementVault is CustodyLock {
         fundedPrincipal0 = p.inventory0;
         fundedPrincipal1 = p.inventory1;
         emit Funded(revision, expectedHash, address(escrow), p.inventory0, p.inventory1, p.budget);
+    }
+
+    function _checkedEscrow(uint256 expectedBudget) private view returns (CompensationEscrow escrow) {
+        escrow = CompensationEscrow(bindings.escrow);
+        if (
+            address(escrow).codehash != keccak256(type(CompensationEscrow).runtimeCode)
+                || escrow.vault() != address(this) || address(escrow.paymentToken()) != bindings.token1
+                || escrow.treasuryRecipient() != treasury || escrow.managerRecipient() != manager
+                || escrow.fundedBudget() != expectedBudget || escrow.refunded() != 0
+        ) revert InvalidEscrow();
     }
 
     function cancel() external nonReentrant {
@@ -260,6 +284,43 @@ contract AgreementVault is CustodyLock {
         }
         (lower, upper) =
             OpeningBand.calculate(uint256(observed.answer), p.tickSpacing, p.bandHalfWidthBps, p.maxWidthTicks);
+    }
+
+    /// @notice Inspect feasibility at this instant. Activation must execute this check again before seeding.
+    function preflightActivation(bytes32 expectedHash) public view returns (ActivationPreflight memory result) {
+        if (state() != State.Funded) revert NotFunded();
+        _checkHash(expectedHash);
+        if (block.chainid != creationChainId) revert WrongChain();
+        if (treasuryAcceptedRevision != revision || managerAcceptedRevision != revision) revert NotAccepted();
+        if (block.timestamp >= activationCutoff) revert CutoffReached();
+
+        Parameters memory p = _c1Parameters();
+        if (fundedPrincipal0 != p.inventory0 || fundedPrincipal1 != p.inventory1) revert IncompleteFunding();
+        CompensationEscrow escrow = _checkedEscrow(p.budget);
+        result.escrowBalance = _available(address(escrow), bindings.token1, p.budget);
+
+        (result.observation, result.lower, result.upper) = previewOpeningReference();
+        if (p.seedLiquidity == 0 || p.seedLiquidity < p.minLiquidity || p.seedLiquidity > p.maxLiquidity) {
+            revert InvalidSeedLiquidity();
+        }
+        PoolKey memory key = PoolKey(
+            Currency.wrap(bindings.token0), Currency.wrap(bindings.token1), p.fee, p.tickSpacing, IHooks(bindings.hook)
+        );
+        result.seed =
+            SeedPool.inspect(IPoolManager(bindings.poolManager), key, result.lower, result.upper, p.seedLiquidity);
+        if (result.seed.amount0 > p.maxGrossInput0 || result.seed.amount1 > p.maxGrossInput1) revert SeedInputLimit();
+        // Each actual vault balance must cover both the original mandate and its quoted seed leg.
+        result.available0 = _available(
+            address(this), bindings.token0, p.inventory0 > result.seed.amount0 ? p.inventory0 : result.seed.amount0
+        );
+        result.available1 = _available(
+            address(this), bindings.token1, p.inventory1 > result.seed.amount1 ? p.inventory1 : result.seed.amount1
+        );
+    }
+
+    function _available(address custodian, address token, uint256 required) private view returns (uint256 balance) {
+        balance = IC1Token(token).balanceOf(custodian);
+        if (balance < required) revert InsufficientCustody(custodian, token, balance, required);
     }
 
     function termsHash() public view returns (bytes32) {
