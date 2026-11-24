@@ -4,7 +4,7 @@ Read [PLAN.md](../PLAN.md), then only the relevant spec, milestone and evidence.
 
 ## Starting point
 
-M1 compatibility/accounting passed in a bounded experiment. Full-product acceptance, funding/refunds, customer fit and economic justification remain incomplete. Do not rebuild M1 from scratch or treat its tests as approval for the full product.
+M1 compatibility/accounting passed in a bounded experiment. The separate root suite covers C1 consent, atomic funding and pre-activation cancellation recovery. Use the [root setup commands](../README.md#setup) for those tests. Activation, active-period settlement, customer fit and economic justification remain open.
 
 Use [candidate C1](SERVICE-SPEC.md) for the narrow local hackathon implementation. A1 and preliminary A2/A3 continue in parallel. Engineering checks, final cost measurement and reproducible demonstration requirements still apply.
 

@@ -42,7 +42,7 @@ Acceptance and full funding precede activation. Cover draft cancellation, expiry
 
 Use recipient-specific compensation failure or an independently failing compensation token. Globally pausing a token also used as principal does not isolate payment failure. State functioning-contract/core/chain and transferable-principal assumptions.
 
-**Status:** incomplete. M1 has no full acceptance/funding prerequisites or refund path; its residual 100 payment tokens remain unrecoverable through supported functions.
+**Status:** incomplete. The local C1 vault and escrow cover pre-activation cancellation and independent principal receipt during a failed budget refund. Active-period entitlement, earned reserves and exit during a failed manager payment remain untested. In the separate M1 experiment, the residual 100 payment tokens remain unrecoverable through its supported functions.
 
 ### A5. Challenge invariants — M3–M6
 
@@ -96,7 +96,7 @@ Direct PoolManager vault ownership; explicit vault checkpoint before liquidity c
 
 **Experimental local dependency:** candidate C1 and replay of the bounded M1 foundation on the target toolchain. A1 and preliminary A2/A3 stay open in parallel. The [C1 specification](docs/SERVICE-SPEC.md) records the acceptance boundary and local build decision. Implement AgreementVault acceptance/funding coordination and one immutable active agreement. Manager may only add/remove/rerange within agreed bounds using available inventory. Collected fees stay treasury-owned.
 
-**Status: partial.** The local vault exposes typed terms, revision, both acceptance records and Draft/Accepted state. Only the creating treasury can revise the deployment identities before the original cutoff. Actual funding, post-funding immutability, activation, bounded position management, revocation and independent exit still need implementation and evidence.
+**Status: partial.** Both parties accept the current typed terms. The original treasury can revise the draft bindings before funding and cutoff, clearing both approvals. Exact principal and separate escrow funding enter Funded and lock the terms. Cancellation in Draft, Accepted or Funded moves no tokens. The treasury can then withdraw idle pair assets while anyone can separately refund credited compensation to the treasury. Activation, bounded position management, revocation and exit from a live position remain pending.
 
 **Exit:** permitted adjustment succeeds; unauthorized caller/recipient/pool/range/amount/deadline paths fail. Rerange failure preserves old state atomically. Revocation blocks subsequent manager operations; treasury removes and receives assets without manager cooperation. No generic executor.
 
@@ -170,8 +170,8 @@ Inspect status/diff, check the change, stage explicit files, commit and push onl
 ## Progress record
 
 - Current: M0/A1 pending; A2/A3/A5 partial M1 evidence; full A4/A6 incomplete.
-- Latest documentation review: 23 November 2026. Historical evidence dates are preserved. Research form prepared/published; no customer acceptance inferred.
-- Next engineering task is the local M2 transition from Accepted to Funded. Require the original treasury, exact current hash, both approvals and an open cutoff. Verify both principal receipts and the separate B budget atomically with local mocks. Test short receipt, transfer failure, repeated funding and the revision lock after funding. Keep activation and payment separate.
+- Latest documentation review: 24 November 2026. Historical evidence dates are preserved. Research form prepared/published; no customer acceptance inferred.
+- Next engineering task is the local M2 activation path against the replayed M1 pool. Start with checks for the accepted hash, both approvals, credited and available funds, original cutoff, fixed PoolKey, fresh opening reference and feasible seed. Test that failures preserve Funded and cancellation recovery. Bounded adjustments, the M3 clock, earned reserves and active-period closeout follow their milestone dependencies.
 - Parallel validation task is to evaluate user-supplied private evidence from one treasury operator and one manager for the same C1 use case. Obtain their separate dated decisions, one reconciliation example with units and payer, and acceptable evidence and cost limits. If evidence is unavailable, keep the worksheet unsent pending explicit outreach instructions. Recalculate the comparison against the simplest arrangement that meets the stated job.
 - Open decisions include buyer-approved depth, budget, duration, operational bounds and a suitable opening source. C1 proposes the conversion, contract interfaces and failure behavior. Full-product evidence is pending.
 - Record each substantive work session: terms/source revision, actual commands/results, commit/push status, evidence location, residual defects and next dependency-ready action.
@@ -190,3 +190,16 @@ Inspect status/diff, check the change, stage explicit files, commit and push onl
 
 - First local M2 slice. Published the [acceptance implementation](src/AgreementVault.sol), [tests](test/AgreementVaultAcceptance.t.sol) and canonical C1 field list together at `9aaa170` on `origin/development`. The vault commits to the exact candidate numerical schedule, roles and fixed recipients, full pool/custody identities and opening rules. Revisions clear both approvals even when restoring previous bindings. A live observation, derived ticks and start time belong to future activation.
 - Executed the root Foundry suite offline with Forge 1.8.7 and native solc 0.8.26+8a97fa7a. Compilation succeeded, 12 tests passed, zero failed or skipped, exit 0. The wrong-hash case ran 256 fuzz inputs. Checks included a separately encoded commitment vector, single-field revisions on the same vault at the same revision, invalid-input rollback, both cutoff boundaries, event idempotence and the two-method write surface. Formatting and all five M1 import hashes passed. Local test calls establish the consent behavior only. A1 and preliminary A2/A3 remain pending, along with complete M2 control/exit and later accrual, compensation, refunds and payment-failure closeout.
+
+### C1 funding and pre-activation recovery, 24 November 2026
+
+Published the contracts and their tests together at `eb13a58` on `origin/development`. Verified the full implementation commit with `git ls-remote --exit-code origin refs/heads/development`. The [root setup](README.md#setup) records the exact commands, native pins and constructor/revision wiring. No external Solidity dependencies were added.
+
+| Evidence | Local result |
+| --- | --- |
+| Complete root suite | Native Forge 1.8.7, pinned Linux solc 0.8.26. Compiled successfully. 12 acceptance, 15 funding and 9 cancellation/recovery tests passed (36 total, 0 failed, 0 skipped, exit 0). Wrong-hash fuzz test ran 256 inputs. |
+| Atomic custody | Treasury debits were 2,000,000,000 A and 2,100,000,000 B units. Vault credits were 2,000,000,000 of each, escrow credit was 100,000,000 B. A failure on each leg, including the final budget leg, restored balances, allowances, credits and Accepted state. Prior gifts, wrong decimals or wiring, short receipts, unexpected debits and malformed transfer results were tested. |
+| Cancelled custody | Cancellation made no transfer. A blocked escrow-to-treasury B route left 100,000,000 B due while the treasury withdrew both principal amounts. Enabling that route paid the original refund once. Failure on the second principal transfer rolled back the first. Escrow gifts remained outside refund rights. |
+| Integrity | Root Solidity formatting and staged whitespace checks passed. All five M1 SHA-256 checks passed before and after (exit 0). The acceptance suite and M1 import were preserved. |
+
+No unresolved root test failures. A1 and preliminary A2/A3 remain pending. M2 still needs activation and bounded management. Accrual, earned reserves, manager payment failure with a live position, and complete closeout remain open. Next implement the M2 activation prerequisites described above.
