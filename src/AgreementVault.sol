@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-/// @notice Draft and acceptance component of the local C1 agreement.
-contract AgreementVault {
+import {CompensationEscrow} from "./CompensationEscrow.sol";
+import {CustodyLock, ExactToken, IC1Token} from "./ExactToken.sol";
+
+/// @notice C1 consent, funding and pre-activation cancellation.
+contract AgreementVault is CustodyLock {
     enum State {
         Draft,
-        Accepted
+        Accepted,
+        Funded,
+        Cancelled
     }
 
     struct Bindings {
@@ -75,6 +80,15 @@ contract AgreementVault {
     uint256 public treasuryAcceptedRevision;
     uint256 public managerAcceptedRevision;
 
+    uint256 public fundedPrincipal0;
+    uint256 public fundedPrincipal1;
+    bool public cancelled;
+
+    error TermsClosed();
+    error NotAccepted();
+    error InvalidEscrow();
+    error InvalidDecimals(address token);
+    error NotCancelled();
     error MissingAgreementId();
     error MissingAddress();
     error ConflictingIdentity(address identity);
@@ -87,6 +101,17 @@ contract AgreementVault {
     event TermsPublished(uint256 indexed revision, bytes32 indexed termsHash);
     event PartyAccepted(uint256 indexed revision, bytes32 indexed termsHash, address indexed party);
 
+    event Funded(
+        uint256 indexed revision,
+        bytes32 indexed termsHash,
+        address indexed escrow,
+        uint256 principal0,
+        uint256 principal1,
+        uint256 budget
+    );
+    event Cancelled(uint256 indexed revision, bytes32 indexed termsHash, address indexed caller);
+    event IdleWithdrawn(address indexed recipient, uint256 amount0, uint256 amount1);
+
     constructor(bytes32 id, address namedManager, Bindings memory initialBindings) {
         if (id == bytes32(0)) revert MissingAgreementId();
         creationChainId = block.chainid;
@@ -98,17 +123,16 @@ contract AgreementVault {
         _publish(initialBindings);
     }
 
-    function revise(Bindings calldata next) external {
+    function revise(Bindings calldata next) external nonReentrant {
         if (msg.sender != treasury) revert NotTreasury();
-        if (block.timestamp >= activationCutoff) revert CutoffReached();
+        _requireOpenTerms();
         _publish(next);
     }
 
-    function accept(bytes32 expectedHash) external {
+    function accept(bytes32 expectedHash) external nonReentrant {
         if (msg.sender != treasury && msg.sender != manager) revert NotParty();
-        if (block.timestamp >= activationCutoff) revert CutoffReached();
-        bytes32 current = termsHash();
-        if (expectedHash != current) revert WrongTermsHash(expectedHash, current);
+        _requireOpenTerms();
+        _checkHash(expectedHash);
 
         if (msg.sender == treasury) {
             if (treasuryAcceptedRevision == revision) return;
@@ -117,12 +141,85 @@ contract AgreementVault {
             if (managerAcceptedRevision == revision) return;
             managerAcceptedRevision = revision;
         }
-        emit PartyAccepted(revision, current, msg.sender);
+        emit PartyAccepted(revision, expectedHash, msg.sender);
     }
 
-    function state() external view returns (State) {
+    function _requireOpenTerms() private view {
+        if (cancelled || fundedPrincipal0 != 0) revert TermsClosed();
+        if (block.timestamp >= activationCutoff) revert CutoffReached();
+    }
+
+    function _checkHash(bytes32 expectedHash) private view {
+        bytes32 current = termsHash();
+        if (expectedHash != current) revert WrongTermsHash(expectedHash, current);
+    }
+
+    function state() public view returns (State) {
+        if (cancelled) return State.Cancelled;
+        if (fundedPrincipal0 != 0) return State.Funded;
         if (treasuryAcceptedRevision == revision && managerAcceptedRevision == revision) return State.Accepted;
         return State.Draft;
+    }
+
+    function fund(bytes32 expectedHash) external nonReentrant {
+        if (msg.sender != treasury) revert NotTreasury();
+        _requireOpenTerms();
+        _checkHash(expectedHash);
+        if (state() != State.Accepted) revert NotAccepted();
+
+        CompensationEscrow escrow = CompensationEscrow(bindings.escrow);
+        if (
+            address(escrow).codehash != keccak256(type(CompensationEscrow).runtimeCode)
+                || escrow.vault() != address(this) || address(escrow.paymentToken()) != bindings.token1
+                || escrow.treasuryRecipient() != treasury || escrow.managerRecipient() != manager
+                || escrow.fundedBudget() != 0 || escrow.refunded() != 0
+        ) revert InvalidEscrow();
+
+        Parameters memory p = _c1Parameters();
+        IC1Token token0 = IC1Token(bindings.token0);
+        IC1Token token1 = IC1Token(bindings.token1);
+        if (token0.decimals() != p.token0Decimals) revert InvalidDecimals(address(token0));
+        if (token1.decimals() != p.token1Decimals) revert InvalidDecimals(address(token1));
+
+        // Besides checking each leg, reconcile the whole call in case a later transfer changes an earlier balance.
+        uint256 treasury0 = token0.balanceOf(treasury);
+        uint256 treasury1 = token1.balanceOf(treasury);
+        uint256 idle0 = token0.balanceOf(address(this));
+        uint256 idle1 = token1.balanceOf(address(this));
+        uint256 escrow1 = token1.balanceOf(address(escrow));
+
+        ExactToken.pull(token0, treasury, address(this), p.inventory0);
+        ExactToken.pull(token1, treasury, address(this), p.inventory1);
+        ExactToken.pull(token1, treasury, address(escrow), p.budget);
+
+        ExactToken.checkDebit(token0, treasury, treasury0, p.inventory0);
+        ExactToken.checkDebit(token1, treasury, treasury1, p.inventory1 + p.budget);
+        ExactToken.checkReceipt(token0, address(this), idle0, p.inventory0);
+        ExactToken.checkReceipt(token1, address(this), idle1, p.inventory1);
+        ExactToken.checkReceipt(token1, address(escrow), escrow1, p.budget);
+        escrow.credit(p.budget);
+        fundedPrincipal0 = p.inventory0;
+        fundedPrincipal1 = p.inventory1;
+        emit Funded(revision, expectedHash, address(escrow), p.inventory0, p.inventory1, p.budget);
+    }
+
+    function cancel() external nonReentrant {
+        if (msg.sender != treasury && block.timestamp < activationCutoff) revert NotTreasury();
+        if (cancelled) return;
+        cancelled = true;
+        emit Cancelled(revision, termsHash(), msg.sender);
+    }
+
+    function withdrawIdle() external nonReentrant returns (uint256 amount0, uint256 amount1) {
+        if (msg.sender != treasury) revert NotTreasury();
+        if (!cancelled) revert NotCancelled();
+        IC1Token token0 = IC1Token(bindings.token0);
+        IC1Token token1 = IC1Token(bindings.token1);
+        amount0 = token0.balanceOf(address(this));
+        amount1 = token1.balanceOf(address(this));
+        ExactToken.pay(token0, treasury, amount0);
+        ExactToken.pay(token1, treasury, amount1);
+        if (amount0 != 0 || amount1 != 0) emit IdleWithdrawn(treasury, amount0, amount1);
     }
 
     function termsHash() public view returns (bytes32) {
