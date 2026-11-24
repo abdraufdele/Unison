@@ -2,6 +2,7 @@
 src = "src"
 test = "test"
 libs = []
+remappings = ["v4-core/=experiments/m1/vendor/v4-core/"]
 solc_version = "0.8.26"
 evm_version = "cancun"
 optimizer = true

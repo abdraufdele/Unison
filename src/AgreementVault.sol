@@ -4,6 +4,9 @@ pragma solidity 0.8.26;
 import {CompensationEscrow} from "./CompensationEscrow.sol";
 import {CustodyLock, ExactToken, IC1Token} from "./ExactToken.sol";
 
+import {IOpeningReferenceAdapter} from "./IOpeningReferenceAdapter.sol";
+import {OpeningBand} from "./OpeningBand.sol";
+
 /// @notice C1 consent, funding and pre-activation cancellation.
 contract AgreementVault is CustodyLock {
     enum State {
@@ -87,6 +90,9 @@ contract AgreementVault is CustodyLock {
     error TermsClosed();
     error NotAccepted();
     error InvalidEscrow();
+    error UnreadableReference();
+    error ReferenceMismatch();
+    error InvalidObservation();
     error InvalidDecimals(address token);
     error NotCancelled();
     error MissingAgreementId();
@@ -220,6 +226,40 @@ contract AgreementVault is CustodyLock {
         ExactToken.pay(token0, treasury, amount0);
         ExactToken.pay(token1, treasury, amount1);
         if (amount0 != 0 || amount1 != 0) emit IdleWithdrawn(treasury, amount0, amount1);
+    }
+
+    /// @notice Read the current accepted reference once. A preview neither fixes a band nor starts a period.
+    function previewOpeningReference()
+        public
+        view
+        returns (IOpeningReferenceAdapter.Observation memory observed, int24 lower, int24 upper)
+    {
+        State status = state();
+        if (status != State.Accepted && status != State.Funded) revert NotAccepted();
+        Parameters memory p = _c1Parameters();
+        (bool ok, bytes memory data) =
+            bindings.referenceAdapter.staticcall(abi.encodeCall(IOpeningReferenceAdapter.observation, ()));
+        if (!ok || data.length != 9 * 32) revert UnreadableReference();
+        observed = abi.decode(data, (IOpeningReferenceAdapter.Observation));
+        if (
+            observed.source != bindings.referenceSource || observed.base != bindings.token0
+                || observed.quote != bindings.token1 || observed.baseDecimals != p.token0Decimals
+                || observed.quoteDecimals != p.token1Decimals || observed.feedDecimals != p.referenceDecimals
+        ) {
+            revert ReferenceMismatch();
+        }
+        if (IC1Token(observed.base).decimals() != p.token0Decimals) revert InvalidDecimals(observed.base);
+        if (IC1Token(observed.quote).decimals() != p.token1Decimals) revert InvalidDecimals(observed.quote);
+        if (
+            !observed.complete || observed.answer <= 0 || observed.updatedAt == 0
+                || observed.updatedAt > block.timestamp || block.timestamp - observed.updatedAt > p.maxReferenceAge
+        ) revert InvalidObservation();
+        // C1 normalization: answer * 10^6 / (10^8 * 10^6) = answer / 10^8, with no division loss.
+        if (p.token0Decimals != 6 || p.token1Decimals != 6 || p.referenceDecimals != 8) {
+            revert OpeningBand.UnsupportedParameters();
+        }
+        (lower, upper) =
+            OpeningBand.calculate(uint256(observed.answer), p.tickSpacing, p.bandHalfWidthBps, p.maxWidthTicks);
     }
 
     function termsHash() public view returns (bytes32) {
