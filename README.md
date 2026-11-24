@@ -6,13 +6,13 @@ A proposed treasury-owned Uniswap v4 liquidity-service agreement. One treasury h
 
 ## Status
 
-The narrow experimental MVP is local-only. The repository includes the verified source of the bounded M1 compatibility/accounting experiment. The original Windows experiment has been reproduced on native WSL. The local C1 vault records two-party acceptance, funds principal and compensation atomically, and supports cancellation before activation. The treasury can recover idle pair assets independently of the escrow refund. Activation, management, earned compensation and active-period closeout remain pending. Customer acceptance and economic advantage still require evidence.
+The narrow experimental MVP is local-only. The repository includes the verified source of the bounded M1 compatibility/accounting experiment. The original Windows experiment has been reproduced on native WSL. The local C1 vault records two-party acceptance, funds principal and compensation atomically, and supports cancellation before activation. The treasury can recover idle pair assets independently of the escrow refund. A read-only preview now validates the accepted local opening observation and calculates both service-band ticks. Activation, management, earned compensation and active-period closeout remain pending. Customer acceptance and economic advantage still require evidence.
 
 Start with [PLAN.md](PLAN.md). Working rules: [AGENTS.md](AGENTS.md). Optional workflow: [docs/BUILDING.md](docs/BUILDING.md). Actual experimental result and limits: [docs/M1-STATUS.md](docs/M1-STATUS.md).
 
 ## Next task
 
-Implement the local M2 activation prerequisites against the pinned M1 pool. Validate the accepted pool and opening reference, available funding and seed feasibility before opening the single position. Evaluate customer feedback on C1 and preliminary comparison/cost evidence in parallel with local engineering. [M1 provenance and scope](experiments/m1/README.md)
+Implement the local M2 activation prerequisites against the pinned M1 pool. Validate the actual pool identity, execution tick, available funding and seed feasibility using a fresh validated opening band. Evaluate customer feedback on C1 and preliminary comparison/cost evidence in parallel with local engineering. [M1 provenance and scope](experiments/m1/README.md)
 
 ## Scope and limits
 
@@ -20,18 +20,23 @@ Fixed-band liquidity-time measures a contractual position condition, not profit,
 
 ## Setup
 
-The root contracts and Forge fixtures use native Forge 1.8.7 (`985eeea031d79922cd654d4e94e6c3701e1c7d73`) and Linux solc 0.8.26+commit.8a97fa7a. They require no external Solidity libraries. Use the cached native compiler at the path below and the checked-in default Foundry profile (Cancun, via IR, optimizer 200). From the repository root run
+The root contracts and Forge fixtures use native Forge 1.8.7 (`985eeea031d79922cd654d4e94e6c3701e1c7d73`) and Linux solc 0.8.26+commit.8a97fa7a. The opening-band calculation imports math from the pinned v4-core checkout. On a fresh clone, obtain the detached core checkout using the [M1 setup](experiments/m1/REPLAY.md#tools-and-inputs). The root suite uses its math files only. Python 3 runs the independent grid check using its standard library. Use the cached native compiler at the path below and the checked-in default Foundry profile (Cancun, via IR, optimizer 200). From the repository root run
 
 ```bash
 forge --version
 ~/.svm/0.8.26/solc-0.8.26 --version
 sha256sum ~/.svm/0.8.26/solc-0.8.26
+test "$(git -C experiments/m1/vendor/v4-core rev-parse HEAD)" = e50237c43811bd9b526eff40f26772152a42daba
+test -z "$(git -C experiments/m1/vendor/v4-core status --porcelain)"
+python3 scripts/check_opening_grid.py
 forge fmt --check src test
 forge test --offline --use ~/.svm/0.8.26/solc-0.8.26 -vv
 (cd experiments/m1 && sha256sum -c SHA256SUMS)
 ```
 
 The expected native compiler SHA-256 is `d5f23436f443edb85d8e76906d12f0a86ce0490e7663a9e608efeb7a93f149ef`. The isolated M1 suites have their own dependencies and replay commands. [Pinned M1 replay procedure](experiments/m1/REPLAY.md) and [WSL replay result](experiments/m1/WSL-RESULT.md).
+
+The [opening-reference implementation note](docs/OPENING-REFERENCE.md) gives the input bounds, rounding proof, mock trust assumptions, upstream credits and how to use the result at activation.
 
 ## Local custody fixture
 

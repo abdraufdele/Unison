@@ -96,7 +96,7 @@ Direct PoolManager vault ownership; explicit vault checkpoint before liquidity c
 
 **Experimental local dependency:** candidate C1 and replay of the bounded M1 foundation on the target toolchain. A1 and preliminary A2/A3 stay open in parallel. The [C1 specification](docs/SERVICE-SPEC.md) records the acceptance boundary and local build decision. Implement AgreementVault acceptance/funding coordination and one immutable active agreement. Manager may only add/remove/rerange within agreed bounds using available inventory. Collected fees stay treasury-owned.
 
-**Status: partial.** Both parties accept the current typed terms. The original treasury can revise the draft bindings before funding and cutoff, clearing both approvals. Exact principal and separate escrow funding enter Funded and lock the terms. Cancellation in Draft, Accepted or Funded moves no tokens. The treasury can then withdraw idle pair assets while anyone can separately refund credited compensation to the treasury. Activation, bounded position management, revocation and exit from a live position remain pending.
+**Status: partial.** Both parties accept the current typed terms. The original treasury can revise the draft bindings before funding and cutoff, clearing both approvals. Exact principal and separate escrow funding enter Funded and lock the terms. Cancellation in Draft, Accepted or Funded moves no tokens. The treasury can then withdraw idle pair assets while anyone can separately refund credited compensation to the treasury. The read-only opening-reference prerequisite validates the accepted observation and derives the exact service band. Activation, actual pool validation, seed feasibility, bounded position management, revocation and exit from a live position remain pending.
 
 **Exit:** permitted adjustment succeeds; unauthorized caller/recipient/pool/range/amount/deadline paths fail. Rerange failure preserves old state atomically. Revocation blocks subsequent manager operations; treasury removes and receives assets without manager cooperation. No generic executor.
 
@@ -171,7 +171,7 @@ Inspect status/diff, check the change, stage explicit files, commit and push onl
 
 - Current: M0/A1 pending; A2/A3/A5 partial M1 evidence; full A4/A6 incomplete.
 - Latest documentation review: 24 November 2026. Historical evidence dates are preserved. Research form prepared/published; no customer acceptance inferred.
-- Next engineering task is the local M2 activation path against the replayed M1 pool. Start with checks for the accepted hash, both approvals, credited and available funds, original cutoff, fixed PoolKey, fresh opening reference and feasible seed. Test that failures preserve Funded and cancellation recovery. Bounded adjustments, the M3 clock, earned reserves and active-period closeout follow their milestone dependencies.
+- Next engineering task is the local M2 activation path against the replayed M1 pool. Next validate the actual initialized pool, fixed PoolKey and execution tick, then check credited and available inventory against the seed amounts for the freshly validated band. Future activation must repeat the opening read in-transaction and enforce the accepted hash, both approvals and the original cutoff. Test that failures preserve Funded and cancellation recovery. Bounded adjustments, the M3 clock, earned reserves and active-period closeout follow their milestone dependencies.
 - Parallel validation task is to evaluate user-supplied private evidence from one treasury operator and one manager for the same C1 use case. Obtain their separate dated decisions, one reconciliation example with units and payer, and acceptable evidence and cost limits. If evidence is unavailable, keep the worksheet unsent pending explicit outreach instructions. Recalculate the comparison against the simplest arrangement that meets the stated job.
 - Open decisions include buyer-approved depth, budget, duration, operational bounds and a suitable opening source. C1 proposes the conversion, contract interfaces and failure behavior. Full-product evidence is pending.
 - Record each substantive work session: terms/source revision, actual commands/results, commit/push status, evidence location, residual defects and next dependency-ready action.
@@ -203,3 +203,15 @@ Published the contracts and their tests together at `eb13a58` on `origin/develop
 | Integrity | Root Solidity formatting and staged whitespace checks passed. All five M1 SHA-256 checks passed before and after (exit 0). The acceptance suite and M1 import were preserved. |
 
 No unresolved root test failures. A1 and preliminary A2/A3 remain pending. M2 still needs activation and bounded management. Accrual, earned reserves, manager payment failure with a live position, and complete closeout remain open. Next implement the M2 activation prerequisites described above.
+
+### C1 opening-reference prerequisite, 24 November 2026
+
+Published implementation, independent arithmetic oracle and tests together at `f25c557` on `origin/development`. Verified the pushed implementation ref with `git ls-remote --exit-code origin refs/heads/development`. The [opening-reference note](docs/OPENING-REFERENCE.md) records the accepted mock interface, exact comparison, overflow bounds, expressible feed boundaries and future activation call. The canonical terms commitment vector still passes.
+
+| Check | Result |
+| --- | --- |
+| `python3 scripts/check_opening_grid.py` | Exit 0. Independent integer recurrence certified all 29,575 grid floors and emitted digests and selected feed vectors. All three Solidity digest comparisons matched. Parity produced [−120, 120). |
+| Complete root suite using the [pinned native command](README.md#setup) | Exit 0. 51 passed, 0 failed, 0 skipped across five suites. These include 8 band, 7 adapter/vault, 12 acceptance, 15 funding and 9 cancellation tests. Coverage/minimality and wrong-hash fuzz tests ran 256 inputs each. |
+| Integrity | `forge fmt --check src test`, staged whitespace checks and all five M1 SHA-256 checks passed (exit 0). The existing clean core checkout supplied the MIT math imports through a root-relative remapping. |
+
+No unresolved suite failures. The adapter asserts the reported price and completion. Live-source selection and independent truth verification remain open. Next validate the actual pool and seed feasibility. Activation, bounded management, service accrual, settlement of earned rights and live-position exit still require implementation. A1 and preliminary A2/A3 remain pending.
