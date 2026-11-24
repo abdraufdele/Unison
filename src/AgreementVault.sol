@@ -6,13 +6,15 @@ import {CustodyLock, ExactToken, IC1Token} from "./ExactToken.sol";
 
 import {IOpeningReferenceAdapter} from "./IOpeningReferenceAdapter.sol";
 import {OpeningBand} from "./OpeningBand.sol";
+import {OpeningQuote} from "./OpeningQuote.sol";
+import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 import {SeedPool} from "./SeedPool.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 
-import {ServiceHook} from "./ServiceHook.sol";
+import {Operation, ServiceHook} from "./ServiceHook.sol";
 import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {PoolId} from "v4-core/src/types/PoolId.sol";
 import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
@@ -74,6 +76,18 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         uint256 escrowBalance;
     }
 
+    struct Bounds {
+        bytes32 termsHash;
+        uint256 validFrom;
+        uint256 deadline;
+        int24 tickLower;
+        int24 tickUpper;
+        uint256 maxInput0;
+        uint256 maxInput1;
+        uint256 minOutput0;
+        uint256 minOutput1;
+    }
+
     struct Terms {
         uint256 chainId;
         address vault;
@@ -95,6 +109,8 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
 
     bytes32 public constant TERMS_SCHEMA = keccak256("Unison.AgreementVault.Terms.v1");
     bytes32 public constant RULES_VERSION = keccak256("Unison.C1.Rules.v1");
+
+    OpeningQuote private immutable openingQuote = new OpeningQuote();
 
     // Compute the canonical runtime hashes at construction, outside the deployed vault code.
     bytes32 private immutable escrowCodeHash = keccak256(type(CompensationEscrow).runtimeCode);
@@ -125,7 +141,28 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
     PoolId public positionPoolId;
     bytes32 public positionSalt;
     uint128 public positionLiquidity;
+    int24 public positionLower;
+    int24 public positionUpper;
+    uint256 public lastAdjustment;
     bytes32 private pendingUnlock;
+
+    error NotManager();
+    error InvalidWindow();
+    error AdjustmentCooldown();
+    error ExecutionTick();
+    error InvalidRange();
+    error LiquidityLimit();
+    error PrincipalLimit();
+
+    event PositionAdjusted(
+        Operation indexed kind,
+        bytes32 indexed salt,
+        int24 lower,
+        int24 upper,
+        uint128 liquidity,
+        BalanceDelta principal,
+        BalanceDelta fees
+    );
 
     error AlreadyActivated();
     error InvalidPeriod();
@@ -342,8 +379,7 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         if (p.token0Decimals != 6 || p.token1Decimals != 6 || p.referenceDecimals != 8) {
             revert OpeningBand.UnsupportedParameters();
         }
-        (lower, upper) =
-            OpeningBand.calculate(uint256(observed.answer), p.tickSpacing, p.bandHalfWidthBps, p.maxWidthTicks);
+        (lower, upper) = openingQuote.band(uint256(observed.answer), p.tickSpacing, p.bandHalfWidthBps, p.maxWidthTicks);
     }
 
     /// @notice Inspect feasibility at this instant. Activation must execute this check again before seeding.
@@ -365,7 +401,7 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         }
         PoolKey memory key = _poolKey();
         result.seed =
-            SeedPool.inspect(IPoolManager(bindings.poolManager), key, result.lower, result.upper, p.seedLiquidity);
+            openingQuote.seed(IPoolManager(bindings.poolManager), key, result.lower, result.upper, p.seedLiquidity);
         if (result.seed.amount0 > p.maxGrossInput0 || result.seed.amount1 > p.maxGrossInput1) revert SeedInputLimit();
         // Each actual vault balance must cover both the original mandate and its quoted seed leg.
         result.available0 = _available(
@@ -390,23 +426,21 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         if (
             address(hook).codehash != hookCodeHash || hook.vault() != address(this)
                 || hook.poolManager() != q.seed.manager || PoolId.unwrap(hook.poolId()) != PoolId.unwrap(q.seed.id)
-                || hook.pendingSeed() != 0
+                || hook.pendingAdd() != 0
         ) revert InvalidServiceHook();
 
         bandLower = q.lower;
         bandUpper = q.upper;
         positionPoolId = q.seed.id;
-        positionSalt = bytes32(uint256(positionSalt) + 1);
-        if (_actualLiquidity() != 0) revert PositionMismatch();
-        (BalanceDelta net, BalanceDelta fees) = _modify(int256(uint256(q.seed.liquidity)));
+        _openIdentity(q.lower, q.upper);
+        (BalanceDelta net, BalanceDelta fees) =
+            _modify(Operation.Seed, int256(uint256(q.seed.liquidity)), q.seed.amount0, q.seed.amount1);
         if (
             BalanceDelta.unwrap(fees) != 0 || int256(net.amount0()) != -int256(q.seed.amount0)
                 || int256(net.amount1()) != -int256(q.seed.amount1)
         ) revert SettlementMismatch();
         ExactToken.checkDebit(IC1Token(bindings.token0), address(this), q.available0, q.seed.amount0);
         ExactToken.checkDebit(IC1Token(bindings.token1), address(this), q.available1, q.seed.amount1);
-        positionLiquidity = _actualLiquidity();
-        if (positionLiquidity != q.seed.liquidity) revert PositionMismatch();
         (uint160 sqrtPrice, int24 tick,,) = q.seed.manager.getSlot0(positionPoolId);
         if (
             sqrtPrice != q.seed.sqrtPriceX96 || tick != q.seed.tick
@@ -428,6 +462,95 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
             start,
             scheduledEnd
         );
+    }
+
+    /// @notice Zero denotes empty. The last salt stays visible after retirement.
+    function positionId() public view returns (bytes32) {
+        if (positionLiquidity == 0) return bytes32(0);
+        return keccak256(abi.encode(positionPoolId, address(this), positionLower, positionUpper, positionSalt));
+    }
+
+    function add(bytes32 expectedId, int24 lower, int24 upper, uint128 liquidity, Bounds calldata bounds)
+        external
+        nonReentrant
+    {
+        _beforeAdjustment(expectedId, bounds);
+        if (positionLiquidity != 0 && (lower != positionLower || upper != positionUpper)) revert PositionMismatch();
+        _addLeg(Operation.Add, lower, upper, liquidity, bounds);
+        _afterAdjustment();
+    }
+
+    function remove(bytes32 expectedId, uint128 liquidity, Bounds calldata bounds) external nonReentrant {
+        _beforeAdjustment(expectedId, bounds);
+        _removeLeg(Operation.Remove, liquidity, bounds);
+        _afterAdjustment();
+    }
+
+    function rerange(bytes32 expectedId, int24 lower, int24 upper, uint128 liquidity, Bounds calldata bounds)
+        external
+        nonReentrant
+    {
+        _beforeAdjustment(expectedId, bounds);
+        if (lower == positionLower && upper == positionUpper) revert InvalidRange();
+        _removeLeg(Operation.Rerange, positionLiquidity, bounds);
+        _addLeg(Operation.Rerange, lower, upper, liquidity, bounds);
+        _afterAdjustment();
+    }
+
+    function _beforeAdjustment(bytes32 expectedId, Bounds calldata b) private view {
+        if (msg.sender != manager) revert NotManager();
+        if (state() != State.Active) revert InvalidPeriod();
+        if (block.chainid != creationChainId) revert WrongChain();
+        _checkHash(b.termsHash);
+        if (positionId() != expectedId || _actualLiquidity() != positionLiquidity) revert PositionMismatch();
+        Parameters memory p = _c1Parameters();
+        if (
+            b.validFrom > block.timestamp || block.timestamp > b.deadline
+                || b.deadline - b.validFrom > p.maxExecutionWindow
+        ) revert InvalidWindow();
+        uint256 previous = lastAdjustment == 0 ? start : lastAdjustment;
+        if (block.timestamp < previous + p.adjustmentCooldown) revert AdjustmentCooldown();
+        (, int24 tick,,) = IPoolManager(bindings.poolManager).getSlot0(positionPoolId);
+        if (
+            b.tickLower < bandLower - p.maxEdgeExtensionTicks || b.tickUpper > bandUpper + p.maxEdgeExtensionTicks
+                || tick < b.tickLower || tick >= b.tickUpper
+        ) revert ExecutionTick();
+        // M3 checkpoint belongs here, with the old identity intact, once per manager request.
+    }
+
+    function _afterAdjustment() private {
+        // M3 installs the new qualification here, after the final core-confirmed leg.
+        lastAdjustment = block.timestamp;
+    }
+
+    function _addLeg(Operation kind, int24 lower, int24 upper, uint128 liquidity, Bounds calldata b) private {
+        Parameters memory p = _c1Parameters();
+        if (
+            lower < bandLower - p.maxEdgeExtensionTicks || lower > bandLower || upper < bandUpper
+                || upper > bandUpper + p.maxEdgeExtensionTicks || lower < TickMath.minUsableTick(p.tickSpacing)
+                || upper > TickMath.maxUsableTick(p.tickSpacing) || lower % p.tickSpacing != 0
+                || upper % p.tickSpacing != 0 || lower >= upper || upper - lower > p.maxWidthTicks
+        ) revert InvalidRange();
+        if (liquidity == 0 || uint256(positionLiquidity) + liquidity > p.maxLiquidity) revert LiquidityLimit();
+        if (positionLiquidity == 0) _openIdentity(lower, upper);
+        _modify(
+            kind,
+            int256(uint256(liquidity)),
+            b.maxInput0 < p.maxGrossInput0 ? b.maxInput0 : p.maxGrossInput0,
+            b.maxInput1 < p.maxGrossInput1 ? b.maxInput1 : p.maxGrossInput1
+        );
+    }
+
+    function _removeLeg(Operation kind, uint128 liquidity, Bounds calldata b) private {
+        if (liquidity == 0 || liquidity > positionLiquidity) revert LiquidityLimit();
+        _modify(kind, -int256(uint256(liquidity)), b.minOutput0, b.minOutput1);
+    }
+
+    function _openIdentity(int24 lower, int24 upper) private {
+        positionSalt = bytes32(uint256(positionSalt) + 1);
+        positionLower = lower;
+        positionUpper = upper;
+        if (_actualLiquidity() != 0) revert PositionMismatch();
     }
 
     function effectiveStop() public view returns (uint256) {
@@ -464,11 +587,10 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         if (_actualLiquidity() != liquidity) revert PositionMismatch();
         uint256 idle0 = IC1Token(bindings.token0).balanceOf(address(this));
         uint256 idle1 = IC1Token(bindings.token1).balanceOf(address(this));
-        (BalanceDelta net, BalanceDelta fees) = _modify(-int256(uint256(liquidity)));
-        if (net.amount0() < 0 || net.amount1() < 0 || _actualLiquidity() != 0) revert PositionMismatch();
+        (BalanceDelta net, BalanceDelta fees) = _modify(Operation.Exit, -int256(uint256(liquidity)), 0, 0);
+        if (net.amount0() < 0 || net.amount1() < 0) revert PositionMismatch();
         ExactToken.checkReceipt(IC1Token(bindings.token0), address(this), idle0, uint128(net.amount0()));
         ExactToken.checkReceipt(IC1Token(bindings.token1), address(this), idle1, uint128(net.amount1()));
-        delete positionLiquidity;
         BalanceDelta principal = net - fees;
         emit LiquidityExited(
             positionPoolId,
@@ -483,40 +605,64 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
 
     function _actualLiquidity() private view returns (uint128 liquidity) {
         (liquidity,,) = IPoolManager(bindings.poolManager)
-            .getPositionInfo(positionPoolId, address(this), bandLower, bandUpper, positionSalt);
+            .getPositionInfo(positionPoolId, address(this), positionLower, positionUpper, positionSalt);
     }
 
-    function _modify(int256 delta) private returns (BalanceDelta net, BalanceDelta fees) {
-        bytes memory data = abi.encode(IPoolManager.ModifyLiquidityParams(bandLower, bandUpper, delta, positionSalt));
+    function _modify(Operation kind, int256 delta, uint256 limit0, uint256 limit1)
+        private
+        returns (BalanceDelta net, BalanceDelta fees)
+    {
+        IPoolManager.ModifyLiquidityParams memory params =
+            IPoolManager.ModifyLiquidityParams(positionLower, positionUpper, delta, positionSalt);
+        bytes memory data = abi.encode(kind, params, limit0, limit1);
         pendingUnlock = keccak256(data);
         bytes memory result = IPoolManager(bindings.poolManager).unlock(data);
         if (pendingUnlock != 0) revert InvalidOperation();
-        return abi.decode(result, (BalanceDelta, BalanceDelta));
+        (net, fees) = abi.decode(result, (BalanceDelta, BalanceDelta));
+        uint128 actual = _actualLiquidity();
+        if (int256(uint256(actual)) != int256(uint256(positionLiquidity)) + delta) revert PositionMismatch();
+        positionLiquidity = actual;
+        if (kind != Operation.Seed && kind != Operation.Exit) {
+            emit PositionAdjusted(kind, positionSalt, positionLower, positionUpper, actual, net - fees, fees);
+        }
     }
 
-    /// @dev One unlock and, only for the seed, one hook admission. Neither grant survives settlement.
+    /// @dev Consume the unlock before interacting. Only the positive leg of this operation can admit an add.
     function unlockCallback(bytes calldata data) external returns (bytes memory) {
         if (msg.sender != bindings.poolManager || pendingUnlock == 0 || keccak256(data) != pendingUnlock) {
             revert InvalidOperation();
         }
         delete pendingUnlock;
         IPoolManager core = IPoolManager(msg.sender);
-        IPoolManager.ModifyLiquidityParams memory params = abi.decode(data, (IPoolManager.ModifyLiquidityParams));
+        (Operation kind, IPoolManager.ModifyLiquidityParams memory params, uint256 limit0, uint256 limit1) =
+            abi.decode(data, (Operation, IPoolManager.ModifyLiquidityParams, uint256, uint256));
         PoolKey memory key = _poolKey();
-        bool seed = params.liquidityDelta > 0;
+        bool adding = params.liquidityDelta > 0;
         ServiceHook hook = ServiceHook(address(key.hooks));
-        if (seed) hook.armSeed(params);
-        (BalanceDelta net, BalanceDelta fees) = core.modifyLiquidity(key, params, "");
-        if (seed && hook.pendingSeed() != 0) revert InvalidOperation();
+        if (adding) hook.armAdd(kind, params);
+        (BalanceDelta net, BalanceDelta fees) = core.modifyLiquidity(key, params, abi.encode(kind));
+        if (adding && hook.pendingAdd() != 0) revert InvalidOperation();
+        BalanceDelta principal = net - fees;
+        _checkPrincipal(principal.amount0(), adding, limit0);
+        _checkPrincipal(principal.amount1(), adding, limit1);
         _settle(core, key.currency0, net.amount0());
         _settle(core, key.currency1, net.amount1());
         return abi.encode(net, fees);
+    }
+
+    function _checkPrincipal(int128 amount, bool adding, uint256 limit) private pure {
+        if (adding) {
+            if (amount > 0 || uint256(-int256(amount)) > limit) revert PrincipalLimit();
+        } else if (amount < 0 || uint128(amount) < limit) {
+            revert PrincipalLimit();
+        }
     }
 
     function _settle(IPoolManager core, Currency currency, int128 delta) private {
         IC1Token token = IC1Token(Currency.unwrap(currency));
         if (delta < 0) {
             uint256 due = uint256(-int256(delta));
+            _available(address(this), address(token), due);
             core.sync(currency);
             ExactToken.pay(token, address(core), due);
             if (core.settle() != due) revert SettlementMismatch();

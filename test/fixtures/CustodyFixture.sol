@@ -154,7 +154,7 @@ abstract contract CustodyFixture is ITransferProbe {
     }
 
     /// @dev The treasury fixture calls the actual entry points; the lock must reject an otherwise authorized caller.
-    function onTransfer() external {
+    function onTransfer() public virtual {
         require(msg.sender == address(a) || msg.sender == address(b), "fixture token only");
         if (probe == Probe.Funding) {
             try vault.fund(vault.termsHash()) {

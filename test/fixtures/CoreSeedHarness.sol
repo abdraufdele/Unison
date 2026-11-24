@@ -42,12 +42,17 @@ contract CoreSeedHarness is IUnlockCallback {
     }
 
     function add(int24 lower, int24 upper, uint128 liquidity) external returns (BalanceDelta principal) {
-        return _unlock(abi.encode(lower, upper, liquidity, uint160(0)));
+        return _unlock(abi.encode(lower, upper, liquidity, uint160(0), false));
     }
 
     function swapDownTo(uint160 limit) external {
         require(limit != 0);
-        _unlock(abi.encode(int24(0), int24(0), uint128(0), limit));
+        _unlock(abi.encode(int24(0), int24(0), uint128(0), limit, true));
+    }
+
+    function swapUpTo(uint160 limit) external {
+        require(limit != 0);
+        _unlock(abi.encode(int24(0), int24(0), uint128(0), limit, false));
     }
 
     function _unlock(bytes memory operation) private returns (BalanceDelta) {
@@ -60,8 +65,8 @@ contract CoreSeedHarness is IUnlockCallback {
 
     function unlockCallback(bytes calldata operation) external returns (bytes memory) {
         require(msg.sender == address(manager) && executing);
-        (int24 lower, int24 upper, uint128 liquidity, uint160 limit) =
-            abi.decode(operation, (int24, int24, uint128, uint160));
+        (int24 lower, int24 upper, uint128 liquidity, uint160 limit, bool zeroForOne) =
+            abi.decode(operation, (int24, int24, uint128, uint160, bool));
         BalanceDelta net;
         BalanceDelta fees;
         if (limit == 0) {
@@ -69,7 +74,7 @@ contract CoreSeedHarness is IUnlockCallback {
                 key, IPoolManager.ModifyLiquidityParams(lower, upper, int256(uint256(liquidity)), bytes32(0)), ""
             );
         } else {
-            net = manager.swap(key, IPoolManager.SwapParams(true, -int256(1e15), limit), "");
+            net = manager.swap(key, IPoolManager.SwapParams(zeroForOne, -int256(1e15), limit), "");
         }
         _settle(key.currency0, net.amount0());
         _settle(key.currency1, net.amount1());

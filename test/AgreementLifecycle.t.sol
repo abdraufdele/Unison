@@ -4,13 +4,10 @@ pragma solidity 0.8.26;
 import {AgreementVault} from "../src/AgreementVault.sol";
 import {CompensationEscrow} from "../src/CompensationEscrow.sol";
 import {ExactToken} from "../src/ExactToken.sol";
-import {ServiceHook} from "../src/ServiceHook.sol";
-import {IOpeningReferenceAdapter} from "../src/IOpeningReferenceAdapter.sol";
+import {Operation, ServiceHook} from "../src/ServiceHook.sol";
 import {Vm} from "./AgreementVaultAcceptance.t.sol";
-import {CustodyFixture, CustodyToken} from "./fixtures/CustodyFixture.sol";
+import {CustodyToken} from "./fixtures/CustodyFixture.sol";
 import {CoreSeedHarness} from "./fixtures/CoreSeedHarness.sol";
-import {MockOpeningReferenceAdapter} from "./fixtures/MockOpeningReferenceAdapter.sol";
-import {PoolManager} from "v4-core/src/PoolManager.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
@@ -21,86 +18,15 @@ import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {CustomRevert} from "v4-core/src/libraries/CustomRevert.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {PoolId} from "v4-core/src/types/PoolId.sol";
-import {Currency} from "v4-core/src/types/Currency.sol";
 import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 
-interface VmLifecycle {
-    function mockCallRevert(address target, bytes calldata data, bytes calldata reason) external;
-    function clearMockedCalls() external;
-    function expectRevert() external;
-}
+import {ActiveFixture} from "./fixtures/ActiveFixture.sol";
 
-contract AgreementLifecycleTest is CustodyFixture {
+contract AgreementLifecycleTest is ActiveFixture {
     using StateLibrary for IPoolManager;
-    uint128 private constant SEED = 100_000_000_000;
-    uint256 private constant COST = 598_173_777;
-    VmLifecycle private constant faults = VmLifecycle(address(uint160(uint256(keccak256("hevm cheat code")))));
-    IPoolManager private core;
-    ServiceHook private hook;
-    PoolKey private key;
-    MockOpeningReferenceAdapter private adapter;
-    bytes32 private h;
-
     event ExitReconciliation(
         uint256 principalA, uint256 principalB, uint256 feeA, uint256 feeB, uint256 treasuryA, uint256 treasuryB
     );
-
-    function _configure(address boundVault) private {
-        vm.warp(10_000);
-        core = new PoolManager(address(this));
-        Currency c0 = Currency.wrap(address(a));
-        Currency c1 = Currency.wrap(address(b));
-        bytes32 initHash =
-            keccak256(abi.encodePacked(type(ServiceHook).creationCode, abi.encode(boundVault, core, c0, c1)));
-        bytes32 salt;
-        address predicted;
-        for (uint256 i; i < 1_000_000; ++i) {
-            salt = bytes32(i);
-            predicted =
-                address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, initHash)))));
-            if (uint160(predicted) & Hooks.ALL_HOOK_MASK == Hooks.BEFORE_ADD_LIQUIDITY_FLAG | Hooks.AFTER_SWAP_FLAG) {
-                break;
-            }
-        }
-        hook = new ServiceHook{salt: salt}(boundVault, core, c0, c1);
-        require(
-            address(hook) == predicted && address(hook).codehash == keccak256(type(ServiceHook).runtimeCode),
-            "CREATE2 product"
-        );
-        key = PoolKey(c0, c1, 3000, 60, IHooks(predicted));
-        require(
-            PoolId.unwrap(hook.poolId()) == PoolId.unwrap(key.toId()) && hook.poolManager() == core
-                && hook.vault() == boundVault
-        );
-        adapter = new MockOpeningReferenceAdapter();
-        AgreementVault.Bindings memory bnd = vault.currentTerms().bindings;
-        bnd.poolManager = address(core);
-        bnd.hook = predicted;
-        bnd.referenceAdapter = address(adapter);
-        bnd.referenceSource = address(adapter);
-        vault.revise(bnd);
-        h = vault.termsHash();
-        adapter.publish(
-            IOpeningReferenceAdapter.Observation(
-                address(adapter), address(a), address(b), 6, 6, 8, 100_000_000, block.timestamp, true
-            )
-        );
-        core.initialize(key, 1 << 96);
-    }
-
-    function _ready() private {
-        _configure(address(vault));
-        _fund();
-    }
-
-    function _active() private {
-        _ready();
-        vault.activate(h);
-    }
-
-    function _liquidity(address owner, bytes32 salt) private view returns (uint128 l) {
-        (l,,) = core.getPositionInfo(key.toId(), owner, -120, 120, salt);
-    }
 
     function testActivationOwnsExactSeedAndFixedObservation() public {
         _active();
@@ -125,7 +51,7 @@ contract AgreementLifecycleTest is CustodyFixture {
         (address source,,,,, uint8 decimals, int256 answer, uint256 timestamp, bool complete) =
             vault.openingObservation();
         require(source == address(adapter) && decimals == 8 && answer == 100_000_000 && timestamp == 10_000 && complete);
-        require(a.balanceOf(address(core)) == COST && b.balanceOf(address(core)) == COST && hook.pendingSeed() == 0);
+        require(a.balanceOf(address(core)) == COST && b.balanceOf(address(core)) == COST && hook.pendingAdd() == 0);
         _balances(0, 0, PRINCIPAL - COST, PRINCIPAL - COST, BUDGET);
         vm.expectRevert(AgreementVault.NotFunded.selector);
         vault.activate(h);
@@ -184,7 +110,7 @@ contract AgreementLifecycleTest is CustodyFixture {
                 && vault.bandUpper() == 0 && PoolId.unwrap(vault.positionPoolId()) == 0
         );
         (address source,,,,,,,,) = vault.openingObservation();
-        require(source == address(0) && hook.pendingSeed() == 0 && _liquidity(address(vault), bytes32(uint256(1))) == 0);
+        require(source == address(0) && hook.pendingAdd() == 0 && _liquidity(address(vault), bytes32(uint256(1))) == 0);
         require(
             core.getLiquidity(key.toId()) == 0 && a.balanceOf(address(core)) == 0 && b.balanceOf(address(core)) == 0
         );
@@ -209,7 +135,7 @@ contract AgreementLifecycleTest is CustodyFixture {
         _ready();
         b.setProbe(this); // Treasury fixture attempts nested fund and cancel during seed payment.
         vault.activate(h);
-        require(blockedCalls == 2 && hook.pendingSeed() == 0);
+        require(blockedCalls == 2 && hook.pendingAdd() == 0);
         vault.terminate();
         probe = Probe.Withdrawal;
         vault.exitLiquidity();
@@ -245,9 +171,9 @@ contract AgreementLifecycleTest is CustodyFixture {
         IPoolManager.ModifyLiquidityParams memory params =
             IPoolManager.ModifyLiquidityParams(-120, 120, int256(uint256(SEED)), bytes32(uint256(1)));
         vm.expectRevert(ServiceHook.NotVault.selector);
-        hook.armSeed(params);
+        hook.armAdd(Operation.Seed, params);
         vm.expectRevert(ServiceHook.WrongCoreOrPool.selector);
-        hook.beforeAddLiquidity(address(vault), key, params, "");
+        hook.beforeAddLiquidity(address(vault), key, params, abi.encode(Operation.Seed));
         vm.expectRevert(AgreementVault.InvalidOperation.selector);
         vault.unlockCallback(abi.encode(params));
         vm.expectRevert(AgreementVault.InvalidOperation.selector);
@@ -255,10 +181,10 @@ contract AgreementLifecycleTest is CustodyFixture {
         vault.unlockCallback(abi.encode(params));
         // Isolated caller impersonation exercises the real hook predicates with a pending seed.
         vm.prank(address(vault));
-        hook.armSeed(params);
-        vm.expectRevert(ServiceHook.InvalidSeedContext.selector);
+        hook.armAdd(Operation.Seed, params);
+        vm.expectRevert(ServiceHook.InvalidAddContext.selector);
         vm.prank(address(vault));
-        hook.armSeed(params);
+        hook.armAdd(Operation.Seed, params);
         PoolKey memory other = key;
         other.fee = 500;
         vm.expectRevert(ServiceHook.WrongCoreOrPool.selector);
@@ -267,6 +193,9 @@ contract AgreementLifecycleTest is CustodyFixture {
         vm.expectRevert(ServiceHook.NotVault.selector);
         vm.prank(address(core));
         hook.beforeAddLiquidity(MANAGER, key, params, "");
+        vm.expectRevert(ServiceHook.InvalidAddContext.selector);
+        vm.prank(address(core));
+        hook.beforeAddLiquidity(address(vault), key, params, abi.encode(Operation.Rerange));
         params.tickLower = -60;
         _badParams(params);
         params.tickLower = -120;
@@ -282,7 +211,10 @@ contract AgreementLifecycleTest is CustodyFixture {
         _badParams(params);
         params.liquidityDelta = int256(uint256(SEED));
         vm.prank(address(core));
-        require(hook.beforeAddLiquidity(address(vault), key, params, "") == IHooks.beforeAddLiquidity.selector);
+        require(
+            hook.beforeAddLiquidity(address(vault), key, params, abi.encode(Operation.Seed))
+                == IHooks.beforeAddLiquidity.selector
+        );
         _badParams(params);
         IPoolManager.SwapParams memory swap = IPoolManager.SwapParams(true, -1, 1 << 96);
         vm.expectRevert(ServiceHook.WrongCoreOrPool.selector);
@@ -293,9 +225,9 @@ contract AgreementLifecycleTest is CustodyFixture {
     }
 
     function _badParams(IPoolManager.ModifyLiquidityParams memory params) private {
-        vm.expectRevert(ServiceHook.InvalidSeedContext.selector);
+        vm.expectRevert(ServiceHook.InvalidAddContext.selector);
         vm.prank(address(core));
-        hook.beforeAddLiquidity(address(vault), key, params, abi.encode(h));
+        hook.beforeAddLiquidity(address(vault), key, params, abi.encode(Operation.Seed));
     }
 
     function testEarlyTerminationIndependentExitAndWithdrawalsAfterSwap() public {

@@ -9,17 +9,25 @@ import {PoolId} from "v4-core/src/types/PoolId.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 
-/// @notice C1 seed admission. Constructor-only bindings give every genuine instance the same runtime hash.
+enum Operation {
+    Seed,
+    Add,
+    Remove,
+    Rerange,
+    Exit
+}
+
+/// @notice C1 add-leg admission. Constructor-only bindings give every genuine instance the same runtime hash.
 contract ServiceHook {
     address public vault;
     IPoolManager public poolManager;
     PoolId public poolId;
-    bytes32 public pendingSeed;
+    bytes32 public pendingAdd;
 
     error InvalidBinding();
     error NotVault();
     error WrongCoreOrPool();
-    error InvalidSeedContext();
+    error InvalidAddContext();
 
     constructor(address ownerVault, IPoolManager core, Currency token0, Currency token1) {
         if (
@@ -34,23 +42,26 @@ contract ServiceHook {
         poolId = PoolKey(token0, token1, 3000, 60, IHooks(address(this))).toId();
     }
 
-    /// @dev The vault calls this inside its authenticated seed unlock, immediately before the single add leg.
-    function armSeed(IPoolManager.ModifyLiquidityParams calldata params) external {
+    /// @dev The vault calls this inside its authenticated unlock, immediately before the single add leg.
+    function armAdd(Operation kind, IPoolManager.ModifyLiquidityParams calldata params) external {
         if (msg.sender != vault) revert NotVault();
-        if (pendingSeed != 0 || params.liquidityDelta <= 0) revert InvalidSeedContext();
-        pendingSeed = keccak256(abi.encode(params));
+        if (
+            pendingAdd != 0 || params.liquidityDelta <= 0
+                || (kind != Operation.Seed && kind != Operation.Add && kind != Operation.Rerange)
+        ) revert InvalidAddContext();
+        pendingAdd = keccak256(abi.encode(params, abi.encode(kind)));
     }
 
     function beforeAddLiquidity(
         address sender,
         PoolKey calldata key,
         IPoolManager.ModifyLiquidityParams calldata params,
-        bytes calldata
+        bytes calldata leg
     ) external returns (bytes4) {
         _authenticate(key);
         if (sender != vault) revert NotVault();
-        if (pendingSeed == 0 || pendingSeed != keccak256(abi.encode(params))) revert InvalidSeedContext();
-        delete pendingSeed;
+        if (pendingAdd == 0 || pendingAdd != keccak256(abi.encode(params, leg))) revert InvalidAddContext();
+        delete pendingAdd;
         return IHooks.beforeAddLiquidity.selector;
     }
 
