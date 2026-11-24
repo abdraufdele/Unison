@@ -10,6 +10,10 @@ The narrow experimental MVP is local-only. The repository includes the verified 
 
 Start with [PLAN.md](PLAN.md). Working rules: [AGENTS.md](AGENTS.md). Optional workflow: [docs/BUILDING.md](docs/BUILDING.md). Actual experimental result and limits: [docs/M1-STATUS.md](docs/M1-STATUS.md).
 
+## Local agreement viewer
+
+Inspect a funded agreement and its service clock, compensation rights, pool position and actual custody at a single block. The viewer runs on loopback, with explicit local fixture controls in a separate terminal. [Setup, start, stop and reset](docs/LOCAL-VIEWER.md)
+
 ## Next task
 
 Evaluate whether both roles accept C1 and whether their reconciliation costs justify the measured premium. The local M6 comparison found identical delivery under matched management and different payment for interrupted service. [M6 results and cost thresholds](docs/M6-COMPARISON.md)
