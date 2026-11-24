@@ -12,13 +12,23 @@ import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 
-/// @notice C1 consent, funding and pre-activation cancellation.
-contract AgreementVault is CustodyLock {
+import {ServiceHook} from "./ServiceHook.sol";
+import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
+import {PoolId} from "v4-core/src/types/PoolId.sol";
+import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
+import {IUnlockCallback} from "v4-core/src/interfaces/callback/IUnlockCallback.sol";
+
+/// @notice C1 consent, principal custody and a single treasury-owned position.
+contract AgreementVault is CustodyLock, IUnlockCallback {
+    using StateLibrary for IPoolManager;
     enum State {
         Draft,
         Accepted,
         Funded,
-        Cancelled
+        Cancelled,
+        Active,
+        Terminated,
+        Expired
     }
 
     struct Bindings {
@@ -86,6 +96,10 @@ contract AgreementVault is CustodyLock {
     bytes32 public constant TERMS_SCHEMA = keccak256("Unison.AgreementVault.Terms.v1");
     bytes32 public constant RULES_VERSION = keccak256("Unison.C1.Rules.v1");
 
+    // Compute the canonical runtime hashes at construction, outside the deployed vault code.
+    bytes32 private immutable escrowCodeHash = keccak256(type(CompensationEscrow).runtimeCode);
+    bytes32 private immutable hookCodeHash = keccak256(type(ServiceHook).runtimeCode);
+
     uint256 public immutable creationChainId;
     bytes32 public immutable agreementId;
     uint256 public immutable createdAt;
@@ -102,6 +116,23 @@ contract AgreementVault is CustodyLock {
     uint256 public fundedPrincipal1;
     bool public cancelled;
 
+    IOpeningReferenceAdapter.Observation public openingObservation;
+    int24 public bandLower;
+    int24 public bandUpper;
+    uint256 public start;
+    uint256 public scheduledEnd;
+    uint256 public recordedStop;
+    PoolId public positionPoolId;
+    bytes32 public positionSalt;
+    uint128 public positionLiquidity;
+    bytes32 private pendingUnlock;
+
+    error AlreadyActivated();
+    error InvalidPeriod();
+    error InvalidServiceHook();
+    error InvalidOperation();
+    error PositionMismatch();
+    error SettlementMismatch();
     error TermsClosed();
     error NotAccepted();
     error InvalidEscrow();
@@ -124,6 +155,30 @@ contract AgreementVault is CustodyLock {
     error NotParty();
     error CutoffReached();
     error WrongTermsHash(bytes32 expected, bytes32 current);
+
+    event Activated(
+        bytes32 indexed termsHash,
+        PoolId indexed poolId,
+        bytes32 indexed salt,
+        int24 lower,
+        int24 upper,
+        uint128 liquidity,
+        uint256 amount0,
+        uint256 amount1,
+        uint256 start,
+        uint256 end
+    );
+    event OpeningFixed(int256 answer, uint256 observedAt, uint160 sqrtPriceX96, int24 tick);
+    event PeriodClosed(State indexed reason, uint256 effectiveStop);
+    event LiquidityExited(
+        PoolId indexed poolId,
+        bytes32 indexed salt,
+        uint128 liquidity,
+        int128 principal0,
+        int128 principal1,
+        int128 fees0,
+        int128 fees1
+    );
 
     event TermsPublished(uint256 indexed revision, bytes32 indexed termsHash);
     event PartyAccepted(uint256 indexed revision, bytes32 indexed termsHash, address indexed party);
@@ -182,6 +237,10 @@ contract AgreementVault is CustodyLock {
     }
 
     function state() public view returns (State) {
+        if (scheduledEnd != 0) {
+            if (recordedStop != 0 && recordedStop < scheduledEnd) return State.Terminated;
+            return block.timestamp >= scheduledEnd ? State.Expired : State.Active;
+        }
         if (cancelled) return State.Cancelled;
         if (fundedPrincipal0 != 0) return State.Funded;
         if (treasuryAcceptedRevision == revision && managerAcceptedRevision == revision) return State.Accepted;
@@ -226,14 +285,15 @@ contract AgreementVault is CustodyLock {
     function _checkedEscrow(uint256 expectedBudget) private view returns (CompensationEscrow escrow) {
         escrow = CompensationEscrow(bindings.escrow);
         if (
-            address(escrow).codehash != keccak256(type(CompensationEscrow).runtimeCode)
-                || escrow.vault() != address(this) || address(escrow.paymentToken()) != bindings.token1
-                || escrow.treasuryRecipient() != treasury || escrow.managerRecipient() != manager
-                || escrow.fundedBudget() != expectedBudget || escrow.refunded() != 0
+            address(escrow).codehash != escrowCodeHash || escrow.vault() != address(this)
+                || address(escrow.paymentToken()) != bindings.token1 || escrow.treasuryRecipient() != treasury
+                || escrow.managerRecipient() != manager || escrow.fundedBudget() != expectedBudget
+                || escrow.refunded() != 0
         ) revert InvalidEscrow();
     }
 
     function cancel() external nonReentrant {
+        if (scheduledEnd != 0) revert AlreadyActivated();
         if (msg.sender != treasury && block.timestamp < activationCutoff) revert NotTreasury();
         if (cancelled) return;
         cancelled = true;
@@ -242,7 +302,7 @@ contract AgreementVault is CustodyLock {
 
     function withdrawIdle() external nonReentrant returns (uint256 amount0, uint256 amount1) {
         if (msg.sender != treasury) revert NotTreasury();
-        if (!cancelled) revert NotCancelled();
+        _requirePrincipalExit();
         IC1Token token0 = IC1Token(bindings.token0);
         IC1Token token1 = IC1Token(bindings.token1);
         amount0 = token0.balanceOf(address(this));
@@ -303,9 +363,7 @@ contract AgreementVault is CustodyLock {
         if (p.seedLiquidity == 0 || p.seedLiquidity < p.minLiquidity || p.seedLiquidity > p.maxLiquidity) {
             revert InvalidSeedLiquidity();
         }
-        PoolKey memory key = PoolKey(
-            Currency.wrap(bindings.token0), Currency.wrap(bindings.token1), p.fee, p.tickSpacing, IHooks(bindings.hook)
-        );
+        PoolKey memory key = _poolKey();
         result.seed =
             SeedPool.inspect(IPoolManager(bindings.poolManager), key, result.lower, result.upper, p.seedLiquidity);
         if (result.seed.amount0 > p.maxGrossInput0 || result.seed.amount1 > p.maxGrossInput1) revert SeedInputLimit();
@@ -316,6 +374,160 @@ contract AgreementVault is CustodyLock {
         result.available1 = _available(
             address(this), bindings.token1, p.inventory1 > result.seed.amount1 ? p.inventory1 : result.seed.amount1
         );
+    }
+
+    function _poolKey() private view returns (PoolKey memory) {
+        Parameters memory p = _c1Parameters();
+        return PoolKey(
+            Currency.wrap(bindings.token0), Currency.wrap(bindings.token1), p.fee, p.tickSpacing, IHooks(bindings.hook)
+        );
+    }
+
+    function activate(bytes32 expectedHash) external nonReentrant {
+        if (msg.sender != treasury) revert NotTreasury();
+        ActivationPreflight memory q = preflightActivation(expectedHash);
+        ServiceHook hook = ServiceHook(bindings.hook);
+        if (
+            address(hook).codehash != hookCodeHash || hook.vault() != address(this)
+                || hook.poolManager() != q.seed.manager || PoolId.unwrap(hook.poolId()) != PoolId.unwrap(q.seed.id)
+                || hook.pendingSeed() != 0
+        ) revert InvalidServiceHook();
+
+        bandLower = q.lower;
+        bandUpper = q.upper;
+        positionPoolId = q.seed.id;
+        positionSalt = bytes32(uint256(positionSalt) + 1);
+        if (_actualLiquidity() != 0) revert PositionMismatch();
+        (BalanceDelta net, BalanceDelta fees) = _modify(int256(uint256(q.seed.liquidity)));
+        if (
+            BalanceDelta.unwrap(fees) != 0 || int256(net.amount0()) != -int256(q.seed.amount0)
+                || int256(net.amount1()) != -int256(q.seed.amount1)
+        ) revert SettlementMismatch();
+        ExactToken.checkDebit(IC1Token(bindings.token0), address(this), q.available0, q.seed.amount0);
+        ExactToken.checkDebit(IC1Token(bindings.token1), address(this), q.available1, q.seed.amount1);
+        positionLiquidity = _actualLiquidity();
+        if (positionLiquidity != q.seed.liquidity) revert PositionMismatch();
+        (uint160 sqrtPrice, int24 tick,,) = q.seed.manager.getSlot0(positionPoolId);
+        if (
+            sqrtPrice != q.seed.sqrtPriceX96 || tick != q.seed.tick
+                || IC1Token(bindings.token1).balanceOf(bindings.escrow) != q.escrowBalance
+        ) revert SettlementMismatch();
+        openingObservation = q.observation;
+        start = block.timestamp;
+        scheduledEnd = start + _c1Parameters().duration;
+        emit OpeningFixed(q.observation.answer, q.observation.updatedAt, sqrtPrice, tick);
+        emit Activated(
+            expectedHash,
+            positionPoolId,
+            positionSalt,
+            bandLower,
+            bandUpper,
+            positionLiquidity,
+            q.seed.amount0,
+            q.seed.amount1,
+            start,
+            scheduledEnd
+        );
+    }
+
+    function effectiveStop() public view returns (uint256) {
+        return state() == State.Expired ? scheduledEnd : recordedStop;
+    }
+
+    function terminate() external nonReentrant {
+        if (msg.sender != treasury) revert NotTreasury();
+        if (scheduledEnd == 0) revert InvalidPeriod();
+        _close(block.timestamp < scheduledEnd ? block.timestamp : scheduledEnd);
+    }
+
+    function finalizeExpiry() external nonReentrant {
+        if (state() != State.Expired) revert InvalidPeriod();
+        _close(scheduledEnd);
+    }
+
+    function _close(uint256 stop) private {
+        if (recordedStop != 0) return;
+        recordedStop = stop;
+        emit PeriodClosed(state(), stop);
+    }
+
+    function _requirePrincipalExit() private view {
+        State status = state();
+        if (status != State.Cancelled && status != State.Terminated && status != State.Expired) revert NotCancelled();
+    }
+
+    function exitLiquidity() external nonReentrant {
+        if (msg.sender != treasury) revert NotTreasury();
+        _requirePrincipalExit();
+        uint128 liquidity = positionLiquidity;
+        if (liquidity == 0) return;
+        if (_actualLiquidity() != liquidity) revert PositionMismatch();
+        uint256 idle0 = IC1Token(bindings.token0).balanceOf(address(this));
+        uint256 idle1 = IC1Token(bindings.token1).balanceOf(address(this));
+        (BalanceDelta net, BalanceDelta fees) = _modify(-int256(uint256(liquidity)));
+        if (net.amount0() < 0 || net.amount1() < 0 || _actualLiquidity() != 0) revert PositionMismatch();
+        ExactToken.checkReceipt(IC1Token(bindings.token0), address(this), idle0, uint128(net.amount0()));
+        ExactToken.checkReceipt(IC1Token(bindings.token1), address(this), idle1, uint128(net.amount1()));
+        delete positionLiquidity;
+        BalanceDelta principal = net - fees;
+        emit LiquidityExited(
+            positionPoolId,
+            positionSalt,
+            liquidity,
+            principal.amount0(),
+            principal.amount1(),
+            fees.amount0(),
+            fees.amount1()
+        );
+    }
+
+    function _actualLiquidity() private view returns (uint128 liquidity) {
+        (liquidity,,) = IPoolManager(bindings.poolManager)
+            .getPositionInfo(positionPoolId, address(this), bandLower, bandUpper, positionSalt);
+    }
+
+    function _modify(int256 delta) private returns (BalanceDelta net, BalanceDelta fees) {
+        bytes memory data = abi.encode(IPoolManager.ModifyLiquidityParams(bandLower, bandUpper, delta, positionSalt));
+        pendingUnlock = keccak256(data);
+        bytes memory result = IPoolManager(bindings.poolManager).unlock(data);
+        if (pendingUnlock != 0) revert InvalidOperation();
+        return abi.decode(result, (BalanceDelta, BalanceDelta));
+    }
+
+    /// @dev One unlock and, only for the seed, one hook admission. Neither grant survives settlement.
+    function unlockCallback(bytes calldata data) external returns (bytes memory) {
+        if (msg.sender != bindings.poolManager || pendingUnlock == 0 || keccak256(data) != pendingUnlock) {
+            revert InvalidOperation();
+        }
+        delete pendingUnlock;
+        IPoolManager core = IPoolManager(msg.sender);
+        IPoolManager.ModifyLiquidityParams memory params = abi.decode(data, (IPoolManager.ModifyLiquidityParams));
+        PoolKey memory key = _poolKey();
+        bool seed = params.liquidityDelta > 0;
+        ServiceHook hook = ServiceHook(address(key.hooks));
+        if (seed) hook.armSeed(params);
+        (BalanceDelta net, BalanceDelta fees) = core.modifyLiquidity(key, params, "");
+        if (seed && hook.pendingSeed() != 0) revert InvalidOperation();
+        _settle(core, key.currency0, net.amount0());
+        _settle(core, key.currency1, net.amount1());
+        return abi.encode(net, fees);
+    }
+
+    function _settle(IPoolManager core, Currency currency, int128 delta) private {
+        IC1Token token = IC1Token(Currency.unwrap(currency));
+        if (delta < 0) {
+            uint256 due = uint256(-int256(delta));
+            core.sync(currency);
+            ExactToken.pay(token, address(core), due);
+            if (core.settle() != due) revert SettlementMismatch();
+        } else if (delta > 0) {
+            uint256 due = uint128(delta);
+            uint256 beforeCore = token.balanceOf(address(core));
+            uint256 beforeVault = token.balanceOf(address(this));
+            core.take(currency, address(this), due);
+            ExactToken.checkDebit(token, address(core), beforeCore, due);
+            ExactToken.checkReceipt(token, address(this), beforeVault, due);
+        }
     }
 
     function _available(address custodian, address token, uint256 required) private view returns (uint256 balance) {
