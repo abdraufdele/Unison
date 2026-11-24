@@ -26,3 +26,6 @@ Thumbs.db
 
 # Isolated reserve mutation and native settlement evidence
 /.local/m4/
+
+# Isolated closeout mutations and native review evidence
+/.local/m5/

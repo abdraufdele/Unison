@@ -5,14 +5,11 @@ import {AgreementVault} from "../src/AgreementVault.sol";
 import {IOpeningReferenceAdapter} from "../src/IOpeningReferenceAdapter.sol";
 import {CustodyLock} from "../src/ExactToken.sol";
 import {Operation, ServiceHook} from "../src/ServiceHook.sol";
-import {ActiveFixture} from "./fixtures/ActiveFixture.sol";
+import {PositionAccountingFixture} from "./fixtures/PositionAccountingFixture.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
-import {SqrtPriceMath} from "v4-core/src/libraries/SqrtPriceMath.sol";
-import {TickMath} from "v4-core/src/libraries/TickMath.sol";
-import {FullMath} from "v4-core/src/libraries/FullMath.sol";
 
-contract ManagerOperationsTest is ActiveFixture {
+contract ManagerOperationsTest is PositionAccountingFixture {
     using StateLibrary for IPoolManager;
 
     struct Balances {
@@ -97,24 +94,6 @@ contract ManagerOperationsTest is ActiveFixture {
         require(int256(beforeOp.coreB) - int256(afterOp.coreB) == deltaB);
         require(b.balanceOf(address(escrow)) == BUDGET && escrow.fundedBudget() == BUDGET && escrow.refunded() == 0);
         require(a.balanceOf(MANAGER) == 0 && b.balanceOf(MANAGER) == 0);
-    }
-
-    function _principal(int24 lower, int24 upper, uint128 l, bool roundUp) private view returns (uint256, uint256) {
-        (uint160 sqrt,,,) = core.getSlot0(key.toId());
-        uint160 lo = TickMath.getSqrtPriceAtTick(lower);
-        uint160 hi = TickMath.getSqrtPriceAtTick(upper);
-        uint160 clipped = sqrt < lo ? lo : (sqrt > hi ? hi : sqrt);
-        return (
-            SqrtPriceMath.getAmount0Delta(clipped, hi, l, roundUp),
-            SqrtPriceMath.getAmount1Delta(lo, clipped, l, roundUp)
-        );
-    }
-
-    function _fees(int24 lower, int24 upper) private view returns (uint256, uint256) {
-        (uint128 l, uint256 lastA, uint256 lastB) =
-            core.getPositionInfo(key.toId(), address(vault), lower, upper, vault.positionSalt());
-        (uint256 growthA, uint256 growthB) = core.getFeeGrowthInside(key.toId(), lower, upper);
-        return (FullMath.mulDiv(growthA - lastA, l, 1 << 128), FullMath.mulDiv(growthB - lastB, l, 1 << 128));
     }
 
     function testAddPartialFullRemoveAndReopenSameTicks() public {
