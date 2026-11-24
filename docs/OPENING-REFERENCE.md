@@ -37,7 +37,7 @@ The Python standard-library oracle walks the grid in steps of 60 from zero in bo
 | 125,000,000 | [2100, 2340) |
 | Maximum supported answer | [886980, 887220) |
 
-Future activation must call the validator inside the activation transaction, recheck the current agreement hash, Funded state, available balances and original cutoff, and validate the actual pool configuration, execution tick and seed feasibility. Persist that transaction's observation, normalized price and edges only when the seed succeeds. Subsequent accounting and exit use stored state. An earlier preview is a snapshot and can expire.
+Treasury activation calls the validator through its in-transaction preflight, rechecks the current agreement hash, Funded state, available balances and original cutoff, and validates actual pool configuration, execution tick and seed feasibility. It records the successful seed’s observation and edges. The stored answer and feed scale specify the normalized C1 price exactly. Subsequent accounting and exit use stored state. An earlier preview is a snapshot and can expire.
 
 ## Dependency and reproduction
 

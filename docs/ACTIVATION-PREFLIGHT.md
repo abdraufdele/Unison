@@ -42,4 +42,4 @@ The tests instantiate the pinned PoolManager in Forge. A test-only stateless hoo
 
 PoolManager and Pool's per-tick capacity calculation carry BUSL-1.1 notices. StateLibrary, TickMath and SqrtPriceMath carry MIT notices. The pinned manager uses Solmate Owned (AGPL-3.0-only). Upstream source and licenses remain in the pinned checkout. The harness follows the direct core owner and settlement path documented in the M1 experiment. [M1 provenance and upstream licenses](../experiments/m1/README.md#attribution-and-license-scope).
 
-Next design the terminal recovery path before placing principal in liquidity. Atomic treasury activation must rerun the preflight in the same transaction, bind and authenticate the vault-owned operation, reconcile the actual seed debits and resulting position, and persist activation only on success.
+The subsequent [activation and recovery integration](ACTIVATION-RECOVERY.md) runs this preflight inside treasury activation and exercises the product hook and vault-owned position. The separate preflight comparisons above retain their original test hook and payer.

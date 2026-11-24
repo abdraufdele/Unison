@@ -6,13 +6,13 @@ A proposed treasury-owned Uniswap v4 liquidity-service agreement. One treasury h
 
 ## Status
 
-The narrow experimental MVP is local-only. The repository includes the verified source of the bounded M1 compatibility/accounting experiment. The original Windows experiment has been reproduced on native WSL. The local C1 vault records two-party acceptance, funds principal and compensation atomically, and supports cancellation before activation. The treasury can recover idle pair assets independently of the escrow refund. A read-only activation preflight now checks custody, reads a fresh opening observation and quotes the seed against the actual pinned v4 pool. Activation, management, earned compensation and active-period closeout remain pending. Customer acceptance and economic advantage still require evidence.
+The narrow experimental MVP is local-only. The repository includes the verified source of the bounded M1 compatibility/accounting experiment. The original Windows experiment has been reproduced on native WSL. The local C1 vault records two-party acceptance, funds principal and compensation atomically, and supports cancellation before activation. The treasury can recover idle pair assets independently of the escrow refund. The treasury can now activate the agreement against the pinned v4 pool, seed a vault-owned position, and recover idle tokens, remaining liquidity and LP fees after termination or expiry. Activation reruns the opening and seed preflight. The product hook admits only the authorized seed. Bounded manager adjustments, the service clock, earned reserves and post-activation compensation settlement remain pending. Customer acceptance and economic advantage still require evidence.
 
 Start with [PLAN.md](PLAN.md). Working rules: [AGENTS.md](AGENTS.md). Optional workflow: [docs/BUILDING.md](docs/BUILDING.md). Actual experimental result and limits: [docs/M1-STATUS.md](docs/M1-STATUS.md).
 
 ## Next task
 
-Design a terminal recovery path for a vault-owned position before adding liquidity custody. Then implement atomic treasury activation and seeding with fresh preflight checks and authenticated callbacks. Evaluate customer feedback on C1 and preliminary comparison/cost evidence in parallel with local engineering. [M1 provenance and scope](experiments/m1/README.md)
+Implement bounded M2 manager adjustments with authenticated operation legs, active-position identity checks and atomic rollback on infeasible changes. Prove that termination and expiry revoke that authority. Evaluate customer feedback on C1 and preliminary comparison/cost evidence in parallel with local engineering. [M1 provenance and scope](experiments/m1/README.md)
 
 ## Scope and limits
 
@@ -38,7 +38,7 @@ forge test --offline --use ~/.svm/0.8.26/solc-0.8.26 -vv
 
 The expected native compiler SHA-256 is `d5f23436f443edb85d8e76906d12f0a86ce0490e7663a9e608efeb7a93f149ef`. The isolated M1 suites have their own dependencies and replay commands. [Pinned M1 replay procedure](experiments/m1/REPLAY.md) and [WSL replay result](experiments/m1/WSL-RESULT.md).
 
-The [activation preflight report](docs/ACTIVATION-PREFLIGHT.md) records the core reads, seed deltas and limits of the fixture. The [opening-reference implementation note](docs/OPENING-REFERENCE.md) gives the input bounds, rounding proof, mock trust assumptions, upstream credits and how to use the result at activation.
+The [activation and principal recovery report](docs/ACTIVATION-RECOVERY.md) covers the product hook, real vault-owned position, independent exit and locked post-activation budget. The [activation preflight report](docs/ACTIVATION-PREFLIGHT.md) records the core reads, seed deltas and limits of the fixture. The [opening-reference implementation note](docs/OPENING-REFERENCE.md) gives the input bounds, rounding proof, mock trust assumptions, upstream credits and how to use the result at activation.
 
 ## Local custody fixture
 
