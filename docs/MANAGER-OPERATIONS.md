@@ -47,4 +47,4 @@ The pinned root suite passed 92 tests across eight suites (77 existing and 15 ma
 
 All four products fit the normal 24,576-byte runtime and 49,152-byte initcode limits under the existing compiler profile. The vault constructor arguments occupy nine ABI words. The hook and escrow each take four, and the helper takes none.
 
-Principal exit assumes working core and vault contracts, transferable principal tokens, chain inclusion and settlement. A pending manager transaction can precede termination in chain order. The activated budget remains locked pending earned reserves, claims and post-activation refunds. A1 and preliminary A2/A3 remain open.
+Principal exit assumes working core and vault contracts, transferable principal tokens, chain inclusion and settlement. A pending manager transaction can precede termination in chain order. The budget stayed locked in the M2 version. M4 added [independent compensation settlement](COMPENSATION.md). A1 and preliminary A2/A3 remain open.

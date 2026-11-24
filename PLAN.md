@@ -4,7 +4,7 @@
 
 One treasury, one manager, one token pair, one fixed-fee Uniswap v4 pool, one active position, one fixed period and a separate compensation budget. Treasury owns principal, idle assets and LP fees. Compensation purchases agreed service, not profit or manager effort.
 
-M1 passed the isolated compatibility/accounting experiment. M2 covers bounded management and independent principal recovery on a local chain with mock assets. M3 service-time accounting passed the local C1 engineering criteria. M4–M8 remain open. M0 candidate C1 is specified. Customer acceptance and preliminary economic justification remain pending. The user authorizes a narrow experimental hackathon MVP on a local chain with mock assets while A1 and preliminary A2/A3 continue in parallel. Technical completion establishes neither customer acceptance, product-market fit nor economic advantage. Real-fund use and public deployment are outside this decision. Project ID supplied by the user: HK-UHI11-1275.
+M1 passed the isolated compatibility/accounting experiment. M2 covers bounded management and independent principal recovery on a local chain with mock assets. M3 service-time accounting passed the local C1 engineering criteria. M4 earned compensation, reserves and terminal refunds passed the local C1 engineering criteria. M5–M8 remain open. M0 candidate C1 is specified. Customer acceptance and preliminary economic justification remain pending. The user authorizes a narrow experimental hackathon MVP on a local chain with mock assets while A1 and preliminary A2/A3 continue in parallel. Technical completion establishes neither customer acceptance, product-market fit nor economic advantage. Real-fund use and public deployment are outside this decision. Project ID supplied by the user: HK-UHI11-1275.
 
 Read only the next milestone, its applicable gates and relevant source/evidence. Older recurring-epoch proposals are superseded by this single-period plan. Missing feedback stays pending; a deadline or commit target cannot pass a gate.
 
@@ -42,7 +42,7 @@ Acceptance and full funding precede activation. Cover draft cancellation, expiry
 
 Use recipient-specific compensation failure or an independently failing compensation token. Globally pausing a token also used as principal does not isolate payment failure. State functioning-contract/core/chain and transferable-principal assumptions.
 
-**Status:** incomplete. The local C1 vault and escrow cover pre-activation cancellation and independent principal receipt during a failed budget refund. The treasury can independently recover principal from the current position after manager adjustments, termination or expiry. Service seconds are measured through stop. Monetary entitlement, earned reserves and exit with a real failed manager claim remain unproved. In the separate M1 experiment, the residual 100 payment tokens remain unrecoverable through its supported functions.
+**Status:** incomplete. The local C1 vault and escrow cover pre-activation cancellation and independent principal receipt during a failed budget refund. The treasury can independently recover principal from the current position after manager adjustments, termination or expiry. M4 proves the worked manager-payment failure, independent principal receipt, protected unpaid reserve, separate refund failure and restored pulls. M5 still requires a broader closeout review across lifecycle states and failure orderings. In the separate M1 experiment, the residual 100 payment tokens remain unrecoverable through its supported functions.
 
 ### A5. Challenge invariants — M3–M6
 
@@ -50,7 +50,7 @@ Correct implementation must pass first. In isolated copies deliberately permit e
 
 **Pass:** independent balance/time reconciliation, boundary tests and stateful action sequences hold; selected mutants fail as intended. Compilation errors do not count as detection. Preserve unchanged source and failures. Tests are not an audit.
 
-**Status:** partial. M1 and the local C1 product clock detect an omitted pre-change checkpoint. Reserve, revocation and payment-dependent exit challenges remain pending.
+**Status:** partial. M1 and the local C1 product clock detect an omitted pre-change checkpoint. The M4 refund mutation also fails at the intended missing-reserve balance assertion. Revocation and payment-dependent exit challenges remain pending.
 
 ### A6. Reproducible demonstration — M7/M8
 
@@ -96,7 +96,7 @@ Direct PoolManager vault ownership; explicit vault checkpoint before liquidity c
 
 **Experimental local dependency:** candidate C1 and replay of the bounded M1 foundation on the target toolchain. A1 and preliminary A2/A3 stay open in parallel. The [C1 specification](docs/SERVICE-SPEC.md) records the acceptance boundary and local build decision. Implement AgreementVault acceptance/funding coordination and one immutable active agreement. Manager may only add/remove/rerange within agreed bounds using available inventory. Collected fees stay treasury-owned.
 
-**Complete for the local C1 engineering experiment.** The funded vault activates against a fresh preflight and owns the seed in the pinned core. Real-core tests cover authorized add, remove, reopen and atomic rerange, every M2 rejection path, rollback of a one-unit inventory shortfall, immediate revocation and independent treasury receipt. Pre-activation cancellation and its separate refund remain available. See the [manager-operation evidence](docs/MANAGER-OPERATIONS.md) and [activation and recovery evidence](docs/ACTIVATION-RECOVERY.md). A4 remains open for post-activation compensation settlement.
+**Complete for the local C1 engineering experiment.** The funded vault activates against a fresh preflight and owns the seed in the pinned core. Real-core tests cover authorized add, remove, reopen and atomic rerange, every M2 rejection path, rollback of a one-unit inventory shortfall, immediate revocation and independent treasury receipt. Pre-activation cancellation and its separate refund remain available. See the [manager-operation evidence](docs/MANAGER-OPERATIONS.md) and [activation and recovery evidence](docs/ACTIVATION-RECOVERY.md). A4 remains open for the complete M5 closeout review.
 
 **Exit:** permitted adjustment succeeds; unauthorized caller/recipient/pool/range/amount/deadline paths fail. Rerange failure preserves old state atomically. Revocation blocks subsequent manager operations; treasury removes and receives assets without manager cooperation. No generic executor.
 
@@ -111,6 +111,8 @@ Checkpoint old state before changes; install actual new state. Retired/unrelated
 **Exit:** known real-swap intervals reconcile, lower-inclusive/upper-exclusive semantics hold, same-time transitions add zero seconds, delayed checkpoints clip correctly and no pre-activation/post-end earnings occur. Define interfaces/events now; a simple wireframe is enough.
 
 ## Priority 4 / M4: fund and calculate manager compensation
+
+**Complete for the local C1 engineering experiment.** The [settlement evidence](docs/COMPENSATION.md) records the cumulative rounding, fixed recipients, exact transfer and failure regressions, and compiled reserve mutation.
 
 **Depends:** M3. CompensationEscrow receives/reserves one budget before activation. Supported token transfers must match actual received amounts.
 
@@ -171,9 +173,9 @@ Inspect status/diff, check the change, stage explicit files, commit and push onl
 
 ## Progress record
 
-- M0/A1 and preliminary A2/A3 remain pending. M1, M2 and M3 passed their local engineering criteria. A4, A5 and A6 remain incomplete.
+- M0/A1 and preliminary A2/A3 remain pending. M1 through M4 passed their local engineering criteria. A4, A5 and A6 remain incomplete.
 - Latest documentation review: 24 November 2026. Historical evidence dates are preserved. Research form prepared/published; no customer acceptance inferred.
-- Next implement M4 cumulative funded compensation, fixed-recipient claims, unpaid earned reserves and final unearned refunds. Complete failure-isolated settlement follows at M5.
+- Next review the full M5 closeout matrix, including revocation, remaining rights, retries and repeated actions, and challenge revocation and payment-dependent exit in isolated copies. Thin read-only frontend work is eligible after M4 interface stabilization.
 - Parallel validation task is to evaluate user-supplied private evidence from one treasury operator and one manager for the same C1 use case. Obtain their separate dated decisions, one reconciliation example with units and payer, and acceptable evidence and cost limits. If evidence is unavailable, keep the worksheet unsent pending explicit outreach instructions. Recalculate the comparison against the simplest arrangement that meets the stated job.
 - Open decisions include buyer-approved depth, budget, duration, operational bounds and a suitable opening source. C1 proposes the conversion, contract interfaces and failure behavior. Full-product evidence is pending.
 - Record each substantive work session: terms/source revision, actual commands/results, commit/push status, evidence location, residual defects and next dependency-ready action.
@@ -257,3 +259,12 @@ Published implementation, real-core tests and the isolated ordering challenge to
 - All four product runtimes and initcodes with arguments fit normal limits. Vault runtime is 23,764 bytes with 812 bytes available. Formatting, size build, grid check and all five original M1 hashes passed. Mutation copies, logs and build artifacts are ignored.
 
 M3's local engineering criteria passed. Next implement M4 cumulative funded compensation with fixed-recipient claims, protection of unpaid earned reserves and terminal unearned refunds. Complete payment-failure settlement remains an M5 dependency. A1 and preliminary A2/A3 are pending.
+
+### C1 earned compensation and M4 exit, 24 November 2026
+
+Published the implementation, tests and mutation replay together in `8a1132c` on `origin/development`, from a clean starting tip of `95fdbf1`. The live ref after push was `8a1132c0475ba6a8d5c09a040a25c8065e0289fb`. The [M4 report](docs/COMPENSATION.md) records the settlement interface, formulas, exact receipts, sizes, commands and scope.
+
+- The exact funded budget of 100,000,000 units and the original 300-second duration produced E = 60,000,000 at Q = 180. A claim at one second paid 333,333 and a second claim at three seconds paid 666,667. Full service, early close, both pull orders and exclusion of gifts reconciled to actual balances.
+- At Q = 120 the manager received 40 B. At Q = 180 the manager-specific transfer failed and treasury terminated at the same timestamp. With the adapter also failing, principal exit delivered 2,100,346,049 A and 1,900,054,977 B units including fees and idle assets. The treasury received its separate 40 B refund, escrow retained the 20 B unpaid reserve and the restored manager route paid those 20 B. Final C = 60 B, R = 40 B, accounted escrow = 0. A separate blocked refund left its 60 B recoverable through principal exit and manager payment.
+- Full pinned root suite passed 109 tests in ten suites, zero failed or skipped, exit 0. Three fuzz tests each ran 256 inputs. Both traced failure cases passed. The one-expression reserve mutant compiled (exit 0) and the unchanged test failed on the intended raw escrow balance, expected 20,000,000 and actual zero (exit 1). Formatting, grid, product size and all five M1 hashes passed.
+- Vault runtime is 23,891 bytes, leaving 685 bytes. All four products fit normal runtime and argument-inclusive initcode limits. The local M4 payment criteria passed. M5 closeout review, broader invariant challenges, final economic measurement, customer validation and the reproducible demonstration remain pending.

@@ -11,7 +11,7 @@
 
 Activation permanently closes cancellation. Otherwise the cancellation-only escrow would mistake a previously active agreement for an unactivated one and release its entire budget. Closing the period records the reason and time without transferring tokens or reading the oracle. A failed removal or withdrawal reverts its own effects and leaves it retryable. Principal exit depends on functioning core and vault contracts, transferable pair tokens and chain inclusion. LP fees and current token quantities belong to the treasury.
 
-The activation slice preceded the service clock. M3 now freezes qualifying seconds on exit. The activated budget stays in escrow pending earned-reserve accounting, claims and post-activation refunds. [Service-clock evidence](SERVICE-CLOCK.md)
+The activation slice preceded the service clock. M3 now freezes qualifying seconds on exit. The M2 budget remained locked after activation. M4 added [fixed-recipient claims and terminal refunds](COMPENSATION.md). [Service-clock evidence](SERVICE-CLOCK.md)
 
 ## How the local integration works
 
