@@ -2,6 +2,8 @@
 
 **Preliminary A2/A3 worksheet · synthetic cases · inconclusive.** The buyer's decision is whether paying for attributable liquidity-seconds saves enough reconciliation work or delivers enough additional service to justify the costs across all payers. No buyer or manager supplied these workloads, prices or benefits. All quantities below are paper inputs or conditional calculations except the three explicitly identified M1 measurements. [Candidate agreement C1, revision bc3d08f](SERVICE-SPEC.md)
 
+The subsequent M6 experiment executed the three onchain arrangements and measured full lifecycle receipts. This worksheet preserves the original assumptions. [Executed comparison and remaining gates](M6-COMPARISON.md)
+
 ## Compare the same treasury job
 
 Start each alternative at tick 0 with 2,000 A, 2,000 B, one 300-second period, 0.30% LP fee, spacing 60 and no protocol fee. Seed 100,000,000,000 raw L at [−120, 120). Use six-decimal mock tokens and one initial reference of 1 B/A. Leave 100 B available **in addition** to the inventory. The treasury keeps fees and bears inventory risk. Assume no competing LP liquidity. Give each managed alternative the C1 operation limits, manager, intended actions and fixed recipients. Allow only C1's pool to use its service hook. Score qualifying seconds under C1's definition for every alternative, even when the payment rule ignores that score.

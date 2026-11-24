@@ -12,7 +12,7 @@ Start with [PLAN.md](PLAN.md). Working rules: [AGENTS.md](AGENTS.md). Optional w
 
 ## Next task
 
-Run the M6 matched comparison and measure costs across the full lifecycle. The M5 closeout review passed for local C1, and the M4 read interfaces stayed stable. Evaluate customer feedback on C1 and preliminary comparison/cost evidence in parallel with local engineering. [M1 provenance and scope](experiments/m1/README.md)
+Evaluate whether both roles accept C1 and whether their reconciliation costs justify the measured premium. The local M6 comparison found identical delivery under matched management and different payment for interrupted service. [M6 results and cost thresholds](docs/M6-COMPARISON.md)
 
 ## Scope and limits
 

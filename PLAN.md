@@ -4,7 +4,7 @@
 
 One treasury, one manager, one token pair, one fixed-fee Uniswap v4 pool, one active position, one fixed period and a separate compensation budget. Treasury owns principal, idle assets and LP fees. Compensation purchases agreed service, not profit or manager effort.
 
-M1 passed the isolated compatibility/accounting experiment. M2 covers bounded management and independent principal recovery on a local chain with mock assets. M3 service-time accounting passed the local C1 engineering criteria. M4 earned compensation, reserves and terminal refunds passed the local C1 engineering criteria. M5 closeout passed the local C1 engineering review. M6–M8 remain open. M0 candidate C1 is specified. Customer acceptance and preliminary economic justification remain pending. The user authorizes a narrow experimental hackathon MVP on a local chain with mock assets while A1 and preliminary A2/A3 continue in parallel. Technical completion establishes neither customer acceptance, product-market fit nor economic advantage. Real-fund use and public deployment are outside this decision. Project ID supplied by the user: HK-UHI11-1275.
+M1 passed the isolated compatibility/accounting experiment. M2 covers bounded management and independent principal recovery on a local chain with mock assets. M3 service-time accounting passed the local C1 engineering criteria. M4 earned compensation, reserves and terminal refunds passed the local C1 engineering criteria. M5 closeout passed the local C1 engineering review. M6's local matched measurement is complete. Its buyer-specific economic exit and M7–M8 remain open. M0 candidate C1 is specified. Customer acceptance and preliminary economic justification remain pending. The user authorizes a narrow experimental hackathon MVP on a local chain with mock assets while A1 and preliminary A2/A3 continue in parallel. Technical completion establishes neither customer acceptance, product-market fit nor economic advantage. Real-fund use and public deployment are outside this decision. Project ID supplied by the user: HK-UHI11-1275.
 
 Read only the next milestone, its applicable gates and relevant source/evidence. Older recurring-epoch proposals are superseded by this single-period plan. Missing feedback stays pending; a deadline or commit target cannot pass a gate.
 
@@ -24,7 +24,7 @@ Compare passive liquidity/owner exit; bounded management with time-prorated reta
 
 **Pass:** reproducible results show a useful service/reconciliation/closeout advantage for the stated buyer, including negative cases. Lower manager pay alone creates no new joint economic value. Record preliminary comparison feasibility and a defensible reason to test while the local experiment proceeds. Final comparison uses the complete lifecycle.
 
-**Status:** partial M1 accounting evidence; no demonstrated complete-workflow superiority.
+**Status:** buyer-specific gate pending. The [M6 executed comparison](docs/M6-COMPARISON.md) found identical service and execution under the two matched managers. Both recovered a fill passive missed. Unison automated different settlement in interrupted cases. The observer remains modeled and the buyer's need for direct settlement is unverified.
 
 ### A3. Justified total cost — M0/M1 preliminary, M6 final
 
@@ -32,7 +32,9 @@ Measure comparable no-hook/hooked active, repeated and ended swap paths; deploym
 
 **Pass:** the buyer-specific benefit justifies total added cost. No universal gas threshold; an inconclusive or unfavorable benchmark is not a pass. Recheck provisional economics against final workflow measurements.
 
-**Status:** partial. Controlled M1 swap increments: 97,462 outward, 57,636 return and 26,904 after termination. These are diagnostic samples, not a typical average or full transaction-cost estimate. The pool cannot detach its hook after termination.
+**Status:** buyer-specific gate pending. M6 measured full local receipts. The interrupted one-period premium over the retainer was 9,405,354 gas, including 144,106 borne by traders. Review, monitoring, capital pricing and avoided buyer work remain unmeasured. [M6 payer costs and sensitivity](docs/M6-COMPARISON.md)
+
+Historical controlled M1 swap increments: 97,462 outward, 57,636 return and 26,904 after termination. These are diagnostic samples, not a typical average or full transaction-cost estimate. The pool cannot detach its hook after termination.
 
 ### A4. Complete closeout and asset rights — M2/M4/M5
 
@@ -135,6 +137,8 @@ Use base units/full precision. Claims pay only fixed manager recipient; repeated
 
 ## Priority 6 / M6: prove what Unison improves
 
+**Measurement complete; economic exit pending.** The [M6 report](docs/M6-COMPARISON.md) reconciles seven scenarios across three executed arms and assesses the observer alternative.
+
 **Depends:** M5 for final evidence. Recheck A2/A3 using full lifecycle. Include passive flat case, feasible recovery, unavailable inventory, delayed execution and external-price drift. Record native LP fees, service, compensation, inventory, marked value, slippage, capital/opportunity costs and gas separately.
 
 **Exit:** A5 detects selected defects; final buyer-specific economic comparison supports the claim. Keep unfavorable/inconclusive outcomes; revise if the simpler alternative wins.
@@ -177,7 +181,7 @@ Inspect status/diff, check the change, stage explicit files, commit and push onl
 
 - M0/A1 and preliminary A2/A3 remain pending. M1 through M5 passed their local engineering criteria. A4 and the specified A5 challenges passed for local C1. A6 remains open.
 - Latest documentation review: 24 November 2026. Historical evidence dates are preserved. Research form prepared/published; no customer acceptance inferred.
-- Next run the M6 matched comparison and cost measurement across the full lifecycle. The unchanged M4 read interfaces are eligible for a thin read-only frontend. Customer validation and reproducible demonstration remain open.
+- Next evaluate dated evidence from a treasury operator and manager on C1, their existing reconciliation costs and their tolerance for the measured payer burdens. M4 read interfaces remain eligible for thin reads. A6 and the reproducible demonstration remain open.
 - Parallel validation task is to evaluate user-supplied private evidence from one treasury operator and one manager for the same C1 use case. Obtain their separate dated decisions, one reconciliation example with units and payer, and acceptable evidence and cost limits. If evidence is unavailable, keep the worksheet unsent pending explicit outreach instructions. Recalculate the comparison against the simplest arrangement that meets the stated job.
 - Open decisions include buyer-approved depth, budget, duration, operational bounds and a suitable opening source. C1 proposes the conversion, contract interfaces and failure behavior. Full-product evidence is pending.
 - Record each substantive work session: terms/source revision, actual commands/results, commit/push status, evidence location, residual defects and next dependency-ready action.
@@ -280,3 +284,12 @@ The clean starting checkout and live development ref were `b9f011c`. Published t
 - Both mutants compiled, each with exit 0. The expiry mutant performed the forbidden full removal at exact end and the test found actual core L zero instead of 100,000,000,000. The mandatory claim in the exit mutant hit the blocked manager route and treasury was short 498,228,754 B base units. Both native tests exited 1 at their intended balance/position assertions. Prior checkpoint and reserve mutation evidence remains applicable.
 - Full pinned suite passed 115 tests in 12 suites, zero failed or skipped, exit 0. The three existing fuzz tests each ran 256 inputs. An initial 32-sequence single test transaction exhausted the normal gas limit. Four eight-seed transactions passed with the same seeds and assertions. Focused traces, product sizes, formatting and all five imported M1 hashes passed. Vault runtime remains 23,891 bytes with 685 bytes available.
 - Next undertake M6 matched scenarios and total-cost measurement. The M4 interfaces remain stable for thin reads. Customer acceptance, economic justification and a reproducible full demonstration remain open.
+
+### M6 matched lifecycle and cost measurement, 24 November 2026
+
+The interruption left a successful comparison build and no scenario receipts. Reused the compiled artifacts. The first interrupted Unison/retainer comparison reconciled before the remaining workloads ran on the same disposable local chain. Published the harness, checks and public ledgers in `590d8e1`. Verified the live development tip at `590d8e13238bde59e4850d54813ce6c2fac2643d` after push. The [cost and decision report](docs/M6-COMPARISON.md) records the measured boundaries and replay.
+
+- Reconciled 21 lifecycles, 45 incoming orders and 150 receipt rows counting common and arm setup once. Tracked actual order balances, fee growth, qualifying intervals, LP and idle principal, compensation rights and marked final holdings. Both managed arms had identical Q, liquidity, fills, treasury fees and principal on every path. Their feasible rerange added 180 qualifying seconds over passive and filled a 50 B order. Both infeasible attempts reverted. Both isolated payment failures preserved the same independent exit and 20 B earned reserve.
+- The interrupted retainer and Unison paid 100 B and 60 B for the same 180 seconds. The incremental treasury, manager and trader gas was 9,190,339, 70,909 and 144,106 respectively. The joint 10-gwei hurdle was 0.09405354 ETH plus any incremental non-gas costs. Payout redistribution supplies no joint savings. Drift left full fixed-band pay intact despite adverse execution against the external mark.
+- Checked all 58 source hashes referenced by the deployed artifact set, compiler settings, dependency pins, Solidity formatting, offline result reconciliation and staged public scope. Product source, shared fixtures, root configuration and the M1 import were unchanged. The prior 115-test product result stands. The observer's certified settlement, disputes, latency and costs remain modeled.
+- The local M6 measurements are available. Its buyer-specific exit, A1 and preliminary/final A2/A3 remain pending. Next apply evidenced workload counts, existing dispute/reconciliation costs and payer tolerances to the measured hurdles, and obtain both roles' assessment of the same terms when feedback is available. No outreach, frontend work or deployment beyond the local fixture.
