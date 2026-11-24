@@ -20,3 +20,6 @@ Thumbs.db
 
 # Unsent validation materials and private responses
 /.local/validation/
+
+# Isolated service-clock mutation and native replay logs
+/.local/m3/

@@ -109,6 +109,7 @@ contract AgreementLifecycleTest is ActiveFixture {
             vault.positionSalt() == 0 && vault.positionLiquidity() == 0 && vault.bandLower() == 0
                 && vault.bandUpper() == 0 && PoolId.unwrap(vault.positionPoolId()) == 0
         );
+        require(hook.start() == 0 && hook.projectedSeconds() == 0);
         (address source,,,,,,,,) = vault.openingObservation();
         require(source == address(0) && hook.pendingAdd() == 0 && _liquidity(address(vault), bytes32(uint256(1))) == 0);
         require(
@@ -290,6 +291,9 @@ contract AgreementLifecycleTest is ActiveFixture {
         uint256 treasuryA = PRINCIPAL - COST + principalA + feeA;
         uint256 treasuryB = PRINCIPAL - COST + principalB + feeB;
         _balances(treasuryA, treasuryB, 0, 0, BUDGET);
+        require(
+            hook.stopped() && hook.positionId() == 0 && hook.qualifyingSeconds() == 10 && hook.projectedSeconds() == 10
+        );
         require(treasuryA > PRINCIPAL && treasuryB < PRINCIPAL);
         emit ExitReconciliation(principalA, principalB, feeA, feeB, treasuryA, treasuryB);
         faults.clearMockedCalls();
@@ -320,7 +324,9 @@ contract AgreementLifecycleTest is ActiveFixture {
         vault.exitLiquidity();
         vault.exitLiquidity();
         vault.withdrawIdle();
-        require(vault.recordedStop() == 0);
+        require(
+            vault.recordedStop() == 0 && hook.stopped() && hook.qualifyingSeconds() == 300 && hook.positionId() == 0
+        );
         vm.warp(end + 77);
         vm.prank(DONOR);
         vault.finalizeExpiry();

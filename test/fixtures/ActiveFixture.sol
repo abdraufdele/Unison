@@ -15,6 +15,9 @@ import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {PoolId} from "v4-core/src/types/PoolId.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 
+import {CoreSeedHarness} from "./CoreSeedHarness.sol";
+import {TickMath} from "v4-core/src/libraries/TickMath.sol";
+
 interface VmLifecycle {
     function mockCallRevert(address target, bytes calldata data, bytes calldata reason) external;
     function clearMockedCalls() external;
@@ -83,6 +86,27 @@ abstract contract ActiveFixture is CustodyFixture {
     function _active() internal {
         _ready();
         vault.activate(h);
+    }
+
+    function _bounds() internal view returns (AgreementVault.Bounds memory) {
+        return AgreementVault.Bounds(h, block.timestamp, block.timestamp, -240, 240, PRINCIPAL, PRINCIPAL, 0, 0);
+    }
+
+    function _swap(int24 target) internal {
+        (uint160 price,,,) = core.getSlot0(key.toId());
+        uint160 limit = TickMath.getSqrtPriceAtTick(target);
+        if (price == limit) return;
+        vm.prank(DONOR);
+        CoreSeedHarness trader = new CoreSeedHarness(core, key);
+        if (limit < price) {
+            a.mint(address(trader), 10 * PRINCIPAL);
+            vm.prank(DONOR);
+            trader.swapDownTo(limit);
+        } else {
+            b.mint(address(trader), 10 * PRINCIPAL);
+            vm.prank(DONOR);
+            trader.swapUpTo(limit);
+        }
     }
 
     function _liquidity(address owner, bytes32 salt) internal view returns (uint128 l) {

@@ -7,7 +7,7 @@ import {CustodyLock, ExactToken, IC1Token} from "./ExactToken.sol";
 import {IOpeningReferenceAdapter} from "./IOpeningReferenceAdapter.sol";
 import {OpeningBand} from "./OpeningBand.sol";
 import {OpeningQuote} from "./OpeningQuote.sol";
-import {TickMath} from "v4-core/src/libraries/TickMath.sol";
+import {ServiceRange} from "./ServiceRange.sol";
 import {SeedPool} from "./SeedPool.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
@@ -449,6 +449,7 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         openingObservation = q.observation;
         start = block.timestamp;
         scheduledEnd = start + _c1Parameters().duration;
+        hook.initializeClock(q.lower, q.upper, positionSalt, positionLiquidity, scheduledEnd);
         emit OpeningFixed(q.observation.answer, q.observation.updatedAt, sqrtPrice, tick);
         emit Activated(
             expectedHash,
@@ -497,7 +498,7 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         _afterAdjustment();
     }
 
-    function _beforeAdjustment(bytes32 expectedId, Bounds calldata b) private view {
+    function _beforeAdjustment(bytes32 expectedId, Bounds calldata b) private {
         if (msg.sender != manager) revert NotManager();
         if (state() != State.Active) revert InvalidPeriod();
         if (block.chainid != creationChainId) revert WrongChain();
@@ -515,21 +516,19 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
             b.tickLower < bandLower - p.maxEdgeExtensionTicks || b.tickUpper > bandUpper + p.maxEdgeExtensionTicks
                 || tick < b.tickLower || tick >= b.tickUpper
         ) revert ExecutionTick();
-        // M3 checkpoint belongs here, with the old identity intact, once per manager request.
+        ServiceHook(bindings.hook).beforeAdjustment();
     }
 
     function _afterAdjustment() private {
-        // M3 installs the new qualification here, after the final core-confirmed leg.
+        _publishPosition();
         lastAdjustment = block.timestamp;
     }
 
     function _addLeg(Operation kind, int24 lower, int24 upper, uint128 liquidity, Bounds calldata b) private {
         Parameters memory p = _c1Parameters();
         if (
-            lower < bandLower - p.maxEdgeExtensionTicks || lower > bandLower || upper < bandUpper
-                || upper > bandUpper + p.maxEdgeExtensionTicks || lower < TickMath.minUsableTick(p.tickSpacing)
-                || upper > TickMath.maxUsableTick(p.tickSpacing) || lower % p.tickSpacing != 0
-                || upper % p.tickSpacing != 0 || lower >= upper || upper - lower > p.maxWidthTicks
+            !ServiceRange.covers(lower, upper, bandLower, bandUpper)
+                || !ServiceRange.permitted(lower, upper, bandLower, bandUpper)
         ) revert InvalidRange();
         if (liquidity == 0 || uint256(positionLiquidity) + liquidity > p.maxLiquidity) revert LiquidityLimit();
         if (positionLiquidity == 0) _openIdentity(lower, upper);
@@ -570,6 +569,7 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
 
     function _close(uint256 stop) private {
         if (recordedStop != 0) return;
+        ServiceHook(bindings.hook).stopClock();
         recordedStop = stop;
         emit PeriodClosed(state(), stop);
     }
@@ -584,6 +584,7 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         _requirePrincipalExit();
         uint128 liquidity = positionLiquidity;
         if (liquidity == 0) return;
+        ServiceHook(bindings.hook).stopClock();
         if (_actualLiquidity() != liquidity) revert PositionMismatch();
         uint256 idle0 = IC1Token(bindings.token0).balanceOf(address(this));
         uint256 idle1 = IC1Token(bindings.token1).balanceOf(address(this));
@@ -592,6 +593,7 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         ExactToken.checkReceipt(IC1Token(bindings.token0), address(this), idle0, uint128(net.amount0()));
         ExactToken.checkReceipt(IC1Token(bindings.token1), address(this), idle1, uint128(net.amount1()));
         BalanceDelta principal = net - fees;
+        _publishPosition();
         emit LiquidityExited(
             positionPoolId,
             positionSalt,
@@ -601,6 +603,10 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
             fees.amount0(),
             fees.amount1()
         );
+    }
+
+    function _publishPosition() private {
+        ServiceHook(bindings.hook).installPosition(positionLower, positionUpper, positionSalt, positionLiquidity);
     }
 
     function _actualLiquidity() private view returns (uint128 liquidity) {
@@ -729,7 +735,7 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
     function _c1Parameters() private pure returns (Parameters memory) {
         return Parameters({
             fee: 3000,
-            tickSpacing: 60,
+            tickSpacing: ServiceRange.SPACING,
             token0Decimals: 6,
             token1Decimals: 6,
             inventory0: 2_000_000_000,
@@ -740,10 +746,10 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
             maxReferenceAge: 60,
             bandHalfWidthBps: 100,
             seedLiquidity: 100_000_000_000,
-            minLiquidity: 100_000_000_000,
+            minLiquidity: ServiceRange.MIN_LIQUIDITY,
             maxLiquidity: 200_000_000_000,
-            maxWidthTicks: 480,
-            maxEdgeExtensionTicks: 120,
+            maxWidthTicks: ServiceRange.WIDTH,
+            maxEdgeExtensionTicks: ServiceRange.EXTENSION,
             maxGrossInput0: 2_000_000_000,
             maxGrossInput1: 2_000_000_000,
             adjustmentCooldown: 30,

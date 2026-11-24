@@ -7,7 +7,6 @@ import {CustodyLock} from "../src/ExactToken.sol";
 import {Operation, ServiceHook} from "../src/ServiceHook.sol";
 import {CompensationEscrow} from "../src/CompensationEscrow.sol";
 import {ActiveFixture} from "./fixtures/ActiveFixture.sol";
-import {CoreSeedHarness} from "./fixtures/CoreSeedHarness.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
 import {SqrtPriceMath} from "v4-core/src/libraries/SqrtPriceMath.sol";
@@ -34,6 +33,9 @@ contract ManagerOperationsTest is ActiveFixture {
         require(msg.sender == address(b));
         bytes32 id = vault.positionId();
         AgreementVault.Bounds memory bounds = _bounds();
+        // Core has changed L, but vault settlement has not completed. Public checkpointing
+        // inside a transfer cannot install that intermediate state or credit extra time.
+        require(hook.checkpoint() == 30 && hook.positionId() == id && hook.observedLiquidity() == SEED);
         vm.expectRevert(CustodyLock.ReentrantCall.selector);
         vm.prank(MANAGER);
         vault.add(id, -120, 120, 1, bounds);
@@ -63,10 +65,6 @@ contract ManagerOperationsTest is ActiveFixture {
     function _start() private {
         _active();
         vm.warp(10_030);
-    }
-
-    function _bounds() private view returns (AgreementVault.Bounds memory) {
-        return AgreementVault.Bounds(h, block.timestamp, block.timestamp, -240, 240, PRINCIPAL, PRINCIPAL, 0, 0);
     }
 
     function _position(int24 lower, int24 upper, uint256 salt) private view returns (uint128 l) {
@@ -118,18 +116,6 @@ contract ManagerOperationsTest is ActiveFixture {
             core.getPositionInfo(key.toId(), address(vault), lower, upper, vault.positionSalt());
         (uint256 growthA, uint256 growthB) = core.getFeeGrowthInside(key.toId(), lower, upper);
         return (FullMath.mulDiv(growthA - lastA, l, 1 << 128), FullMath.mulDiv(growthB - lastB, l, 1 << 128));
-    }
-
-    function _swap(int24 target) private {
-        CoreSeedHarness trader = new CoreSeedHarness(core, key);
-        (, int24 tick,,) = core.getSlot0(key.toId());
-        if (target < tick) {
-            a.mint(address(trader), 10 * PRINCIPAL);
-            trader.swapDownTo(TickMath.getSqrtPriceAtTick(target));
-        } else {
-            b.mint(address(trader), 10 * PRINCIPAL);
-            trader.swapUpTo(TickMath.getSqrtPriceAtTick(target));
-        }
     }
 
     function testAddPartialFullRemoveAndReopenSameTicks() public {
@@ -447,6 +433,7 @@ contract ManagerOperationsTest is ActiveFixture {
         _start();
         bytes32 oldId = vault.positionId();
         uint128 l = _liquidityForInput(-240, 120, false, PRINCIPAL);
+        require(hook.lastCheckpoint() == 10_000 && hook.qualifyingSeconds() == 0 && hook.projectedSeconds() == 30);
         AgreementVault.Bounds memory bounds = _bounds();
         Balances memory beforeOp = _readBalances();
         (uint256 outA, uint256 outB) = _principal(-120, 120, SEED, false);
@@ -462,6 +449,8 @@ contract ManagerOperationsTest is ActiveFixture {
         vm.prank(MANAGER);
         vault.rerange(oldId, -240, 120, l, bounds);
         _settled(beforeOp, 0, 0);
+        require(hook.lastCheckpoint() == 10_000 && hook.qualifyingSeconds() == 0 && hook.projectedSeconds() == 30);
+        require(hook.positionId() == oldId && hook.storedQualified() && hook.observedLiquidity() == SEED);
         _assertLive(-120, 120, 1, SEED);
         require(vault.lastAdjustment() == 0 && core.getLiquidity(key.toId()) == SEED && _position(-240, 120, 2) == 0);
         vm.expectRevert(AgreementVault.InvalidOperation.selector);
@@ -479,6 +468,7 @@ contract ManagerOperationsTest is ActiveFixture {
         b.setProbe(this); // An otherwise authorized treasury attempts nested writes during both legs.
         vm.prank(MANAGER);
         vault.rerange(oldId, -240, 120, l, bounds);
+        require(hook.qualifyingSeconds() == 30 && hook.positionId() == vault.positionId());
         require(blockedCalls == 4 && vault.lastAdjustment() == 10_030);
         _settled(beforeOp, int256(outA) - int256(costA), int256(outB) - int256(costB));
         _assertLive(-240, 120, 2, l);
