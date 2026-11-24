@@ -1,6 +1,6 @@
 # Bounded C1 management on the local core
 
-The named manager can call `add`, `remove` and `rerange` while the vault is Active. Supply the current terms hash, expected position ID, inclusive validity timestamps, a lower-inclusive and upper-exclusive tick interval, maximum inputs on an add leg and minimum principal outputs on a remove leg. The vault applies the C1 range, amount, tick, window and cooldown rules to the whole request. A manager may leave one unit of liquidity, below the 100,000,000,000 service minimum, or remove everything. Service-time accounting is pending. [C1 terms](SERVICE-SPEC.md#manager-permissions-and-position-identity)
+The named manager can call `add`, `remove` and `rerange` while the vault is Active. Supply the current terms hash, expected position ID, inclusive validity timestamps, a lower-inclusive and upper-exclusive tick interval, maximum inputs on an add leg and minimum principal outputs on a remove leg. The vault applies the C1 range, amount, tick, window and cooldown rules to the whole request. A manager may leave one unit of liquidity, below the 100,000,000,000 service minimum, or remove everything. These M2 results preceded the service clock. [C1 terms](SERVICE-SPEC.md#manager-permissions-and-position-identity)
 
 ## Position, custody and callbacks
 
@@ -8,7 +8,7 @@ The named manager can call `add`, `remove` and `rerange` while the vault is Acti
 
 Rerange settles the removal into the vault and then opens the new range using vault inventory, all under one transaction lock. Each leg gets a separate core unlock. Its single-use commitment covers the operation kind, both ticks, salt, signed liquidity delta and both applicable token limits. The hook separately consumes an add grant bound to the kind and exact positive leg after checking core, PoolId and vault sender. The vault checks principal from the signed net core delta minus LP fees before settling either currency. The vault pays core or takes proceeds to itself and verifies the actual core liquidity after each leg. The escrow has no role in those calls. [Vault](../src/AgreementVault.sol) · [Hook](../src/ServiceHook.sol)
 
-The old position is available in `_beforeAdjustment` after identity, actual liquidity and execution checks. M3 can checkpoint it there. The final core-confirmed position is available in `_afterAdjustment`, where the vault records one successful adjustment time. Both legs revert together on failure. M3 still needs to initialize the clock on activation, observe external swaps, and clip accrual at termination and expiry.
+The old position is available in `_beforeAdjustment` after identity, actual liquidity and execution checks. The current vault checkpoints it there. The final core-confirmed position is available in `_afterAdjustment`, where the vault records one successful adjustment time. Both legs revert together on failure. M3 added activation, swap observation and terminal clipping at these boundaries. [Service-clock evidence](SERVICE-CLOCK.md)
 
 ## Real-core evidence
 
@@ -47,4 +47,4 @@ The pinned root suite passed 92 tests across eight suites (77 existing and 15 ma
 
 All four products fit the normal 24,576-byte runtime and 49,152-byte initcode limits under the existing compiler profile. The vault constructor arguments occupy nine ABI words. The hook and escrow each take four, and the helper takes none.
 
-Principal exit assumes working core and vault contracts, transferable principal tokens, chain inclusion and settlement. A pending manager transaction can precede termination in chain order. The activated budget remains locked pending the service clock, earned reserves, claims and post-activation refunds. A1 and preliminary A2/A3 remain open.
+Principal exit assumes working core and vault contracts, transferable principal tokens, chain inclusion and settlement. A pending manager transaction can precede termination in chain order. The activated budget remains locked pending earned reserves, claims and post-activation refunds. A1 and preliminary A2/A3 remain open.
