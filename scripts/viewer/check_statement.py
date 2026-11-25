@@ -1,4 +1,5 @@
 """Replay explicit scenarios on private, launcher-owned test chains; keep an existing demo intact."""
+import argparse
 import json
 import secrets
 import subprocess
@@ -64,6 +65,11 @@ def replay(server, scenario):
                 assert reply.status == 200 and data["stage"] == action, (action, data.get("message"))
             finally:
                 conn.close()
+        if scenario == "manager":
+            check_export(server, session, scenario)
+            from check_manager import reconcile_manager
+            reconcile_manager(run, session)
+            return
         if scenario == "payment":
             check_export(server, session, "funded")
         act("activate")
@@ -89,12 +95,17 @@ def replay(server, scenario):
 if __name__ == "__main__":
     # Chromium routes the fixed frontend gateway origin to this actual Reader instance in its test context.
     # The manifest keeps the production browser endpoint. The OS selects an isolated loopback listener.
+    parser = argparse.ArgumentParser()
+    parser.add_argument("cases", nargs="*", help="Optional scenarios: payment, swap, expiry, manager")
+    cases = parser.parse_args().cases or ["payment", "swap", "expiry", "manager"]
+    if set(cases) - {"payment", "swap", "expiry", "manager"}:
+        parser.error("Unknown scenario")
     with ThreadingHTTPServer((demo.HOST, 0), demo.Reader) as server:
         demo.PORT = server.server_port
         worker = threading.Thread(target=server.serve_forever)
         worker.start()
         try:
-            for case in ("payment", "swap", "expiry"):
+            for case in cases:
                 replay(server, case)
         finally:
             server.shutdown()

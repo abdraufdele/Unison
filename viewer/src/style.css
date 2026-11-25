@@ -349,6 +349,7 @@ section {
   cursor: pointer;
   font-size: 0.94rem;
 }
+.receipts p,
 .receipts code,
 .reset code {
   overflow-wrap: anywhere;

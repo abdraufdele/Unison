@@ -80,7 +80,12 @@ export function DemoControls({
     generation.current++
     setMessage('')
     setPending(action ? actorName(action.actor) + ' · ' + action.label : 'Resetting the named run')
-    const body = { runId, version: state.version, ...(action ? { action: action.id } : { confirmation }) }
+    const body = {
+      runId,
+      version: state.version,
+      ...(action ? { action: action.id } : { confirmation }),
+      ...(action?.id === 'rerange' ? { positionId: s.position } : {}),
+    }
     try {
       const res = await fetch(base + (action ? '/action' : '/reset'), {
         method: 'POST',

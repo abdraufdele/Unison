@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
+import { exerciseManager } from './check-manager.mjs'
 import { join } from 'node:path'
 import { chromium } from 'playwright-core'
-import { createPublicClient, http, parseAbi } from 'viem'
+import { createPublicClient, http, parseAbi, encodeAbiParameters, parseAbiParameters, keccak256 } from 'viem'
 
 const [port, scenario, runId] = process.argv.slice(2)
 assert.match(port, /^\d+$/)
@@ -16,6 +17,7 @@ const cases = {
   refund: [180, 60000000, 40000000, 20000000, 40000000, 0],
   repeatRefund: [180, 60000000, 60000000, 0, 40000000, 0],
   swap: [120, 40000000, 0, 40000000, 0, 60000000],
+  manager: [180, 60000000, 0, 60000000, 0, 40000000],
   expiry: [300, 100000000, 0, 100000000, 0, 0],
 }
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH, headless: true })
@@ -46,8 +48,14 @@ try {
     }
     return route.fulfill({ response })
   })
-  const before = await client.getBlock()
+  const initial = await client.getBlock()
   await page.goto(origin)
+  await page.locator('#statement').waitFor()
+  assert.equal((await client.getBlock()).hash, initial.hash)
+  assert.deepEqual(writes, [])
+  if (scenario === 'manager') await exerciseManager(page, client, target, runId)
+  const writeCount = writes.length
+  const before = await client.getBlock()
   const section = page.locator('#statement'),
     build = section.getByRole('button', { name: 'Build statement' })
   await build.click()
@@ -103,6 +111,35 @@ try {
     assert.equal(r.intervals.at(-1).to, r.derived.effectiveStop)
     assert.match(await section.innerText(), /without a PeriodClosed event/)
   }
+  if (scenario === 'manager') {
+    const legs = r.events.filter((e) => e.name === 'PositionAdjusted').map((e) => e.args)
+    assert.deepEqual(
+      legs.map((x) => [BigInt(x.salt), x.lower, x.upper, x.liquidity]),
+      [
+        [1n, '-120', '120', '0'],
+        [2n, '-180', '180', '100000000000'],
+      ]
+    )
+    const postSwap = r.intervals.find((i) => i.from === '2090')
+    assert.ok(postSwap.qualified && postSwap.secondsCredited === '90')
+    const observation = r.events[Number(postSwap.fromEvent)].args
+    const pool = r.events.find((e) => e.name === 'Activated').args.poolId
+    const expectedId = keccak256(
+      encodeAbiParameters(parseAbiParameters('bytes32,address,int24,int24,bytes32'), [
+        pool,
+        r.addresses.vault,
+        -180,
+        180,
+        legs[1].salt,
+      ])
+    )
+    assert.equal(observation.positionId, expectedId)
+    assert.equal(observation.tick, '120')
+    assert.equal(observation.newQualified, true)
+    assert.equal(r.derived.ownedLiquidity, '0')
+    assert.equal(r.derived.escrowB, '100000000')
+    assert.equal(r.movements.filter((m) => m.kind === 'Treasury withdrawal').length, 2)
+  }
   if (scenario === 'swap') {
     const gap = r.intervals.find((i) => !i.qualified)
     assert.equal(BigInt(gap.to) - BigInt(gap.from), 120n)
@@ -133,7 +170,7 @@ try {
     }
   }
   assert.equal((await client.getBlock()).hash, before.hash)
-  assert.deepEqual(writes, [])
+  assert.equal(writes.length, writeCount)
   assert.deepEqual(errors, [])
   console.log(
     scenario,

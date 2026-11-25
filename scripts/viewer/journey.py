@@ -8,6 +8,7 @@ from web3 import Web3
 from web3.logs import DISCARD
 
 from artifacts import fixture
+from statement import split_delta
 
 
 @dataclass(frozen=True)
@@ -34,13 +35,19 @@ STEPS = {
     "claim20": Step(("restore",), "manager", 2186, "Claim the preserved 20 B"),
     "repeatClaim": Step(("claim20",), "manager", 2187, "Repeat the settled claim"),
     "repeatRefund": Step(("repeatClaim",), "treasury", 2188, "Repeat the settled refund"),
+    "prepareRange": Step(("activate",), "treasury", 2030, "Manager journey: checkpoint the seed after 30 s"),
+    "rerange": Step(("prepareRange",), "manager", 2031, "Extend the position to [−180, 180)"),
+    "rangeSwap": Step(("rerange",), "trader", 2090, "Offer 700 B for A up to tick 120"),
+    "rangeClose": Step(("rangeSwap",), "treasury", 2180, "Terminate the extended position period"),
+    "rangeExit": Step(("rangeClose",), "treasury", 2182, "Remove the extended position and collect fees"),
+    "rangeWithdraw": Step(("rangeExit",), "treasury", 2183, "Withdraw both vault assets to treasury"),
     "interrupt": Step(("activate",), "trader", 2090, "Alternate path: interrupt service at +90 s"),
     "return": Step(("interrupt",), "trader", 2210, "Return the pool to the opening band"),
     "shortClose": Step(("activate", "interrupt"), "treasury", 2180, "End the short preview at +180 s"),
     "returnClose": Step(("return",), "treasury", 2240, "Close the recovered position at +240 s"),
 }
 CLOSED = {"terminate", "revoked", "remove", "withdraw", "refund", "restore", "claim20",
-          "repeatClaim", "repeatRefund", "shortClose", "returnClose"}
+          "repeatClaim", "repeatRefund", "shortClose", "returnClose", "rangeClose", "rangeExit", "rangeWithdraw"}
 
 
 class Conflict(ValueError):
@@ -73,6 +80,55 @@ def amount(n):
     return format(Decimal(n) / 1_000_000, 'f')
 
 
+def core_position(r, edge, salt, block):
+    return r.router.functions.position(r.key, r.v.address, -edge, edge, fixture.word(salt)).call(block_identifier=block)
+
+
+def expected_position(r, edge, salt):
+    return Web3.keccak(r.w.codec.encode(["bytes32", "address", "int24", "int24", "bytes32"],
+                       [r.hook.functions.poolId().call(), r.v.address, -edge, edge, fixture.word(salt)]))
+
+
+def bounded_rerange(r, displayed_id, n):
+    old = expected_position(r, 120, 1)
+    check(displayed_id == Web3.to_hex(old) and r.v.functions.positionId().call(block_identifier=n) == old,
+          "Displayed seed position is stale. Refresh this run.")
+    price, tick, pool_l, owned, *_ = core_position(r, 120, 1, n)
+    check((price, tick, pool_l, owned) == (1 << 96, 0, fixture.L, fixture.L)
+          and core_position(r, 180, 2, n)[3] == 0, "Expected an undisturbed parity seed.")
+    # Parity execution only. Each token has a separate gross input cap and principal output floor.
+    bounds = (r.h, 2030, 2040, 0, 1, 900*fixture.UNIT, 900*fixture.UNIT, 598*fixture.UNIT, 598*fixture.UNIT)
+    fn = r.v.functions.rerange(old, -180, 180, fixture.L, bounds)
+    # The exact call exercises both unlocks against actual core liquidity, idle inventory and C1 limits.
+    fn.call({"from": r.actors["manager"]}, block_identifier=n)
+    return fn
+
+
+def reconciled_rerange(r, receipt, before, after):
+    n = receipt.blockNumber
+    new = expected_position(r, 180, 2)
+    check(core_position(r, 120, 1, n)[3] == 0 and core_position(r, 180, 2, n)[2:4] == [fixture.L, fixture.L]
+          and r.v.functions.positionId().call(block_identifier=n) == new, "Core position replacement mismatch.")
+    legs = [ev["args"] for ev in r.v.events.PositionAdjusted().process_receipt(receipt, errors=DISCARD)]
+    check([(x["kind"], x["lower"], x["upper"], x["salt"], x["liquidity"]) for x in legs]
+          == [(3, -120, 120, fixture.word(1), 0), (3, -180, 180, fixture.word(2), fixture.L)],
+          "Unexpected rerange legs.")
+    for i in (0, 1):
+        delta = sum(split_delta(x["principal"])[i] + split_delta(x["fees"])[i] for x in legs)
+        check(after["vault"][i]-before["vault"][i] == delta, "Idle inventory differs from rerange settlement.")
+    check(before["q"] == 30 and after["q"] == 31 and after["qualification"][0]
+          and after["escrowB"] == before["escrowB"] == fixture.BUDGET
+          and r.v.functions.lastAdjustment().call(block_identifier=n) == 2031, "Service, custody or cooldown mismatch.")
+    removed = split_delta(legs[0]["principal"])
+    added = split_delta(legs[1]["principal"])
+    return (f"Vault seed {Web3.to_hex(expected_position(r, 120, 1))} retired with zero L. "
+            f"Salt 2 holds {fixture.L:,} L under {Web3.to_hex(new)}. "
+            f"Removed {amount(removed[0])} A and {amount(removed[1])} B; "
+            f"added {amount(-added[0])} A and {amount(-added[1])} B. "
+            f"Idle {amount(after['vault'][0])} A and {amount(after['vault'][1])} B. "
+            "31 qualifying seconds preserved; next eligible adjustment at 2061 s.")
+
+
 class Journey:
     def __init__(self, run, manifest, verify):
         self.run, self.manifest, self.verify = run, manifest, verify
@@ -102,27 +158,29 @@ class Journey:
         expected_phase = 2 if self.stage == "funded" else 5 if self.stage in CLOSED else 4
         check(r.v.functions.state().call() == expected_phase, "Onchain lifecycle differs from the expected stage.")
 
-    def call(self, action):
+    def call(self, action, body):
         r = self.run
         if action == "activate":
             return r.v.functions.activate(r.h)
-        if action in ("trade", "interrupt", "return"):
-            sell_a, limit = {"trade": (True, -20), "interrupt": (False, 120), "return": (True, 0)}[action]
+        if action == "rerange":
+            return bounded_rerange(r, body["positionId"], self.head.number)
+        if action in ("trade", "interrupt", "return", "rangeSwap"):
+            sell_a, limit = {"trade": (True, -20), "interrupt": (False, 120), "return": (True, 0), "rangeSwap": (False, 120)}[action]
             return r.router.functions.order(r.key, sell_a, 700 * fixture.UNIT, limit)
         if action in ("claim40", "claim20", "failedClaim", "repeatClaim"):
             return r.esc.functions.claim()
-        if action == "checkpoint":
+        if action in ("checkpoint", "prepareRange"):
             return r.hook.functions.checkpoint()
         if action in ("block", "restore"):
             return r.b.functions.setFault(r.esc.address, r.actors["manager"], 1 if action == "block" else 0)
-        if action in ("terminate", "shortClose", "returnClose"):
+        if action in ("terminate", "shortClose", "returnClose", "rangeClose"):
             return r.v.functions.terminate()
         if action == "revoked":
             bounds = (r.h, 2180, 2200, -240, 240, fixture.CAP, fixture.CAP, 0, 0)
             return r.v.functions.remove(r.v.functions.positionId().call(), fixture.L // 4, bounds)
-        if action == "remove":
+        if action in ("remove", "rangeExit"):
             return r.v.functions.exitLiquidity()
-        if action == "withdraw":
+        if action in ("withdraw", "rangeWithdraw"):
             return r.v.functions.withdrawIdle()
         if action in ("refund", "repeatRefund"):
             return r.esc.functions.refund()
@@ -135,7 +193,7 @@ class Journey:
         check(not self.problem and step and self.stage in step.previous, "Action unavailable at this stage.")
         r = self.run
         actor = r.owner if step.actor == "fixture" else r.actors[step.actor]
-        fn = self.call(action)
+        fn = self.call(action, body)
         before = ledger(r, self.head.number)
         proof = None
         if action == "revoked":
@@ -208,7 +266,7 @@ class Journey:
             check(delta == (40 * fixture.UNIT if action == "refund" else 0) and
                   after["escrowB"] == after["reserved"], "Refund or reserve mismatch.")
             return f"Treasury received {amount(delta)} B. Escrow retained {amount(after['escrowB'])} B."
-        if action == "remove":
+        if action in ("remove", "rangeExit"):
             event, = r.v.events.LiquidityExited().process_receipt(receipt, errors=DISCARD)
             args = event["args"]
             for i in (0, 1):
@@ -217,11 +275,28 @@ class Journey:
             check(after["liquidity"] == 0 and after["escrowB"] == before["escrowB"], "Removal mismatch.")
             return (f"Vault received principal {amount(args['principal0'])} A and {amount(args['principal1'])} B, "
                     f"plus LP fees {amount(args['fees0'])} A and {amount(args['fees1'])} B.")
-        if action == "withdraw":
+        if action in ("withdraw", "rangeWithdraw"):
             received = [a - b for a, b in zip(after["treasury"], before["treasury"])]
             check(received == before["vault"] and after["vault"] == [0, 0] and
                   after["escrowB"] == before["escrowB"], "Principal receipt mismatch.")
-            return f"Treasury received {amount(received[0])} A and {amount(received[1])} B with payment blocked."
+            suffix = " with payment blocked" if action == "withdraw" else ""
+            return f"Treasury received {amount(received[0])} A and {amount(received[1])} B{suffix}."
+        if action == "rerange":
+            return reconciled_rerange(r, receipt, before, after)
+        if action == "rangeSwap":
+            n = receipt.blockNumber
+            def change(token):
+                balance = token.functions.balanceOf(r.trader)
+                return balance.call(block_identifier=n) - balance.call(block_identifier=n-1)
+            used, output = -change(r.b), change(r.a)
+            price, tick, _, owned, *_ = core_position(r, 180, 2, n)
+            check(0 < used <= 700*fixture.UNIT and output > 0 and owned == fixture.L
+                  and price <= r.router.functions.price(120).call() and after["escrowB"] == fixture.BUDGET,
+                  "Unexpected trader fill or custody.")
+            qualified = "qualifies" if after["qualification"][0] else "does not qualify"
+            return (f"Used {amount(used)} B for {amount(output)} A; {amount(700*fixture.UNIT-used)} B unspent. "
+                    f"Stored tick {tick}. The [−180, 180) position {qualified}. It covers the fixed [−120, 120) "
+                    f"opening band, and C1 tests the tick against the installed position. Q={after['q']} s.")
         if action == "terminate":
             check(after["q"] == 180 and after["refundable"] == 40 * fixture.UNIT and
                   after["reserved"] == 20 * fixture.UNIT and after["escrowB"] == before["escrowB"], "Close mismatch.")

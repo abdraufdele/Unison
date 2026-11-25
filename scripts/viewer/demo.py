@@ -80,7 +80,10 @@ class Reader(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(size))
             reset = self.path == "/controls/reset"
             field = "confirmation" if reset else "action"
-            if not isinstance(body, dict) or set(body) != {"runId", "version", field} or not isinstance(body[field], str):
+            fields = {"runId", "version", field}
+            if not reset and isinstance(body, dict) and body.get("action") == "rerange":
+                fields.add("positionId")
+            if not isinstance(body, dict) or set(body) != fields or not isinstance(body[field], str):
                 raise ValueError("Invalid action fields.")
         except (ValueError, TypeError):
             return self.send_json(400, {"message": "Expected a fixed action and the current run and version."})
