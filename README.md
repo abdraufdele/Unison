@@ -22,7 +22,7 @@ Both parties accept the same terms hash before funding. At activation a fresh op
 ## Evidence and limits
 
 - **Measured cost.** In M6’s interrupted 300-second period with an outward swap, a return and a post-expiry swap, Unison used **9,405,354 more gas** than the bounded retainer. That includes one dedicated deployment per arm and its lifecycle transactions. Shared infrastructure and fixture costs are itemized separately. Treasury bore 9,190,339 extra gas, manager 70,909 and traders 144,106. The 40 B refund redistributes the existing budget. [Payer ledger and workload](docs/M6-COMPARISON.md#cost-by-payer-and-economic-hurdle)
-- **Local engineering.** The recorded root suite passed 115 tests. Two author rounds on a provisioned WSL2 host reproduced three paths each. Chromium rechecked the patched viewer. Independent reproduction, customer acceptance, buyer economics and a narrated video remain pending. The implementation is now on the default [main branch](https://github.com/abdraufdele/Unison), integrated from development with a regular merge preserving individual commit history. [Author receipts](docs/A6-AUTHOR-REHEARSAL.md) · [Dependency assessment](docs/VIEWER-DEPENDENCIES.md) · [Independent checklist](docs/A6-REVIEWER.md)
+- **Local engineering.** The recorded root suite passed 115 tests. Two author rounds on a provisioned WSL2 host reproduced three paths each. Chromium rechecked the patched viewer. Independent reproduction, customer acceptance, buyer economics and a narrated video remain pending. The implementation is now on the default [main branch](https://github.com/abdraufdele/Unison), integrated from development with a regular merge preserving individual commit history. [Author receipts](docs/A6-AUTHOR-REHEARSAL.md) · [Dependency assessment](docs/VIEWER-DEPENDENCIES.md) · [Independent checklist](docs/A6-REVIEWER.md) · [Latest local recheck](docs/TECHNICAL-RECHECK.md)
 - **Limits.** The treasury bears market and inventory risk. The clock measures the agreed position condition. It can pay through external price drift and says nothing about profit, effort or guaranteed execution. Exit needs working vault, hook and core contracts, transferable principal tokens, chain progress and inclusion. The demo blocks one escrow-to-manager route. A global token freeze could block principal too. Only local mock assets and a mock opening source were exercised. [Service specification](docs/SERVICE-SPEC.md) · [Closeout assumptions](docs/CLOSEOUT.md)
 
 ## Setup
@@ -97,3 +97,12 @@ Open `http://127.0.0.1:5173/`, check the funded run ID and select **Use this dem
 ## Reuse and licenses
 
 Unison’s C1 vault, service accounting, escrow and viewer build on the project’s preserved M1 direct-core experiment. M1 obtained unmodified upstream dependencies from the Essentials checkout. No Essentials hook implementation was imported. Uniswap v4-core supplies PoolManager (BUSL-1.1) and libraries including StateLibrary and FullMath (MIT). Solmate supplies Owned (AGPL-3.0-only). Preserve file-specific notices. The frontend uses React, React DOM, viem and Vite (MIT), TypeScript and Playwright Core (Apache-2.0), plus separately licensed transitive packages. [M1 provenance and license texts](experiments/m1/README.md#attribution-and-license-scope) · [Opening math credits](docs/OPENING-REFERENCE.md) · [Viewer dependencies](viewer/package-lock.json)
+
+
+### Native WSL tools and demo scope
+
+In WSL, check `command -v node npm` and `node -v` before the viewer commands. Both executables must resolve to the Linux installation, not Windows executables under `/mnt/c/`. Activate the documented Node version through your Linux version manager if necessary. A Windows npm selected from WSL can launch CMD against a UNC path and fail before TypeScript runs.
+
+The browser is a fixed-actor local demonstration starting after acceptance and funding by the launcher. Draft creation/revision, separate wallet acceptance, approvals and funding are implemented/tested contract operations, not a complete browser onboarding workflow. General wallet connection and arbitrary manager requests are outside this frontend.
+
+Mutation replay scripts use standard GNU `grep`; ripgrep is not required. Baseline success, successful mutant compilation and the exact intended assertion remain required.

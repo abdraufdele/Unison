@@ -125,7 +125,7 @@ claimable = earned − claimed
 
 Use base units/full precision. Claims pay only fixed manager recipient; repeated claims cannot double-pay. Refund only final unearned funds after cancellation/closeout, never currently unearned active-period funds. Exclude or explicitly reconcile unsolicited donations.
 
-**Exit:** 100 six-decimal USDC × 180/300 = 60,000,000 units; one second = 333,333 units. Claims/refunds/earned reserves conserve funds. Expose terms, qualification reasons, seconds, earned/claimed/reserved/refundable amounts and reconstructible transition events.
+**Exit:** 100 six-decimal mock B × 180/300 = 60,000,000 units; one second = 333,333 units. Claims/refunds/earned reserves conserve funds. Expose terms, qualification reasons, seconds, earned/claimed/reserved/refundable amounts and reconstructible transition events.
 
 **Frontend:** begin thin real read-only UI when these interfaces stabilize. No per-second transactions or mandatory indexer/database.
 
@@ -365,3 +365,10 @@ Published the judge README, pitch and timed demo, inspection route, evidence que
 ### Authorized integration into main, 25 November 2026
 
 The user explicitly authorized a regular merge, without squash or rebase. Merge `c78173c28105ed768f885a9563f6f9a15aae24b5` joins bootstrap main `e87b16b570feb0475405b0406e54096cb55bea52` and development tip `5c057fb0c4bec7b1a8bbdbb365dbbd344d2de97a`. All 44 development commits beyond the bootstrap retain their IDs, authors and timestamps. The development tip is an ancestor of the merge; its file tree matches the merge exactly. README, workflow status and submission guidance now identify main as the implemented judging branch. No product source changed, so existing runtime evidence applies. Independent A6 review, customer/economic gates, video and submission remain pending. Remote publication is verified separately after push.
+
+
+### Local technical verification follow-up, 25 November 2026
+
+Completed the remaining author-side recheck; [executed evidence and commands](docs/TECHNICAL-RECHECK.md). The unchanged product suite passed 115/115 tests. Native Linux viewer build and artifact identity checks passed, the five M1 hashes matched, and M6's published 21 lifecycles/45 orders/150 receipt rows reconciled. Fresh browser runs passed all eight statement exports and the full payment-failure, independent-exit and swap-interruption journeys, including rejection/reset/read-only checks. All four mutation runners passed: correct baselines and compiled mutants, followed by each exact intended regression failure. Removed the undeclared ripgrep prerequisite from these runners using GNU grep without changing product source or tests. Corrected stale build/closeout status and mock-token terminology, and documented that frontend onboarding begins with launcher-side acceptance/funding.
+
+The disposable browser, raw logs and wrappers remain ignored; owned demo/browser processes were stopped. Customer acceptance, buyer economics, independent A6 review, timed video and actual submission remain pending. Next: a second developer executes A6; the presenter records/times the existing demonstrated paths while customer validation continues. These follow-up changes belong on development; no additional merge into main is authorized by this verification task. Commit and remote publication are checked after the final staged review.

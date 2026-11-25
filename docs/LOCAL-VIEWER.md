@@ -220,3 +220,8 @@ The funded vault held 2,000 A and 2,000 B. After seeding it held 1,401.826223 of
 React, React DOM, viem, Vite and the React type packages declare MIT licenses. TypeScript and Playwright Core declare Apache-2.0. The lockfile also includes transitive ISC and BSD-3-Clause packages. Dependency packages carry their license texts. Product, fixture and upstream Solidity retain their existing notices. [Dependency lock](../viewer/package-lock.json) · [Upstream attribution](../experiments/m1/README.md#attribution-and-license-scope)
 
 The permitted manager path has an author browser replay. A6 still needs another developer to reproduce the pinned setup and rehearse the full demonstration across fresh runs. The local receipt list lives only for its run. The M6 matched retainer delivered identical tested liquidity. Customer acceptance and economic justification remain open.
+
+
+## Workflow boundary
+
+The launcher performs draft creation, acceptance and funding before the page starts. Browser controls cover prepared post-funding journeys with fixed disposable actors. They are not a general wallet-connected onboarding interface. Run setup and lifecycle contract tests separately when assessing those earlier transitions. In WSL, confirm `command -v node npm` selects Linux executables before building or starting preview.

@@ -19,7 +19,7 @@ printf 'Evidence in %s\n' "$run"
 compiler=(--offline --use "$HOME/.svm/0.8.26/solc-0.8.26")
 selection=(--match-path test/CloseoutBoundary.t.sol --match-test "$name")
 forge test "${compiler[@]}" "${selection[@]}" -vv > "$run/baseline.log" 2>&1
-rg -F "[PASS] $name()" "$run/baseline.log"
+grep -F "[PASS] $name()" "$run/baseline.log"
 cp -R src test foundry.toml "$run/"
 mkdir -p "$run/experiments/m1"
 ln -s "$PWD/experiments/m1/vendor" "$run/experiments/m1/vendor"
@@ -40,18 +40,18 @@ assert source.count(old) == 1
 vault.write_text(source.replace(old, new))
 PY
 forge build --root . "${compiler[@]}" test/CloseoutBoundary.t.sol > build.log 2>&1
-rg -F 'Compiler run successful' build.log
+grep -F 'Compiler run successful' build.log
 status=0
 forge test --root . "${compiler[@]}" "${selection[@]}" -vvvv > mutant.log 2>&1 || status=$?
 test "$status" = 1
-rg -m 1 "\\[FAIL: ${assertion}\\] ${name}\\(\\)" mutant.log
+grep -Em 1 "\\[FAIL: ${assertion}\\] ${name}\\(\\)" mutant.log
 if [[ $1 == revocation ]]; then
-    rg -q 'emit PositionAdjusted\(.*liquidity: 0,' mutant.log
+    grep -Eq 'emit PositionAdjusted\(.*liquidity: 0,' mutant.log
 else
     # Limit the payment check to the exit subtree, after the initial intentionally failed claim.
     sed -n '/AgreementVault::exitLiquidity()/,/AgreementVault::withdrawIdle()/p' mutant.log > exit.log
-    rg -q 'CompensationEscrow::claim\(' exit.log
-    rg -q 'blocked route' exit.log
-    rg -q 'TransferFailed\(' exit.log
+    grep -Eq 'CompensationEscrow::claim\(' exit.log
+    grep -Eq 'blocked route' exit.log
+    grep -Eq 'TransferFailed\(' exit.log
 fi
 printf 'Baseline and mutation build exited 0. Mutated test exited %d.\n' "$status"
