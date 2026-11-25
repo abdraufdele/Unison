@@ -38,3 +38,16 @@ All hashes below are commits in development history. The rehearsal pin, its writ
 - [ ] **Human submission.** Confirm the project ID, branch-specific repository URL, final video link and required fields. An authorized submitter must send the entry and keep the actual confirmation before reporting submission complete.
 
 **Integration completed, 25 November 2026.** The user authorized a regular merge of development into main. Merge `c78173c28105ed768f885a9563f6f9a15aae24b5` preserves the 44 development commits beyond the bootstrap, with development tip `5c057fb0c4bec7b1a8bbdbb365dbbd344d2de97a` as its second parent. Ancestry and identical merged source were checked locally. Main is no longer the bootstrap-only branch. Before any future merge, remind the user to preserve the individual development commits by choosing **Create a merge commit**, record the development tip and obtain explicit merge authorization. After an authorized regular merge, check that the recorded tip is an ancestor of main. No merge, squash or rebase-and-merge is authorized now.
+
+
+## Prepared final entry — not submitted
+
+**Project ID:** HK-UHI11-1275. **Name:** Unison.
+
+**Short description:** A treasury hires one manager for a single Uniswap v4 liquidity position. A hook measures qualifying position time, a vault limits management authority, and a separate escrow settles pay. In the local demonstration, 180 qualifying seconds earned 60 of a 100 mock-token budget. A blocked manager payment did not prevent treasury principal recovery; 20 earned tokens remained reserved and 40 unearned tokens were refundable.
+
+**Evidence and limitations:** 115 contract tests, four fault-injection regressions, fresh browser journeys and eight statement exports passed author checks. The matched retainer delivered identical liquidity. Unison’s demonstrated difference is enforceable service-based settlement, with measured additional cost; customer demand and buyer-specific economic advantage remain unverified. This is a local mock-token MVP, not an audited or publicly deployed product.
+
+**Current technical review handoff:** [revision 5b821b9](https://github.com/abdraufdele/Unison/tree/5b821b93c8cc5480e74a38e4afba66683fd0fca2), [executed recheck](TECHNICAL-RECHECK.md), and [independent reviewer checklist](A6-REVIEWER.md). Main contains the implemented product, while the verification-script/documentation follow-up is on development. A future merge needs explicit authorization and must preserve the individual commits with a regular merge.
+
+**Fields still requiring actual evidence:** independent reviewer identity/date/results; both customer decisions and supporting costs; final video URL and measured duration; submission confirmation. The user confirmed on 25 November 2026 that none of these records is available yet. Prepared text does not satisfy those fields. Do not substitute the local preview URL for a public video link or claim a submission from the presence of this draft.

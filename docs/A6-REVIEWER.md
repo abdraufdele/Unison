@@ -1,6 +1,8 @@
 # A6 independent developer checklist
 
-**Target revision** `a3c5173d9546d017ba322b66ea8096eabdd8ba55` in the public Unison development history. Keep this checklist and its linked setup instructions open while testing that revision in your own clean checkout. Record your fresh runs and observations. A6 remains pending until a second developer supplies a dated record. [Local runbook](LOCAL-VIEWER.md) · [Earlier author rehearsal](A6-AUTHOR-REHEARSAL.md) · [Dependency revision and revalidation](VIEWER-DEPENDENCIES.md)
+**Target revision** `5b821b93c8cc5480e74a38e4afba66683fd0fca2` in the public Unison development history. Keep this checklist and its linked setup instructions open while testing that revision in your own clean checkout. Record your fresh runs and observations. A6 remains pending until a second developer supplies a dated record. [Local runbook](LOCAL-VIEWER.md) · [Earlier author rehearsal](A6-AUTHOR-REHEARSAL.md) · [Dependency revision and revalidation](VIEWER-DEPENDENCIES.md)
+
+The target includes the GNU-grep mutation runner fixes and the latest [author technical recheck](TECHNICAL-RECHECK.md). The product and browser implementation is unchanged from the earlier patched runtime. Author checks are not this reviewer’s evidence. Do not copy their result into the blank reviewer record.
 
 ## Prepare and start
 
@@ -10,7 +12,7 @@
    ```bash
    git clone --branch development --single-branch https://github.com/abdraufdele/Unison.git unison-a6
    cd unison-a6
-   git switch --detach a3c5173d9546d017ba322b66ea8096eabdd8ba55
+   git switch --detach 5b821b93c8cc5480e74a38e4afba66683fd0fca2
    git rev-parse HEAD
    git status --short
    ```
