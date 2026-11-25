@@ -63,11 +63,15 @@ export async function deployment(): Promise<Manifest> {
   } catch {
     throw stale()
   }
+  if (m && (m.schema !== 1 || m.buildId !== abi.buildId))
+    throw new ReadIssue(
+      'Unsupported deployment schema or build',
+      'Use the matched local launcher and viewer artifacts.',
+      true
+    )
   if (
     !m ||
     typeof m !== 'object' ||
-    m.schema !== 1 ||
-    m.buildId !== abi.buildId ||
     m.chainId !== 31337 ||
     m.endpoint !== endpoint ||
     !isHash(typeof m.runId === 'string' ? m.runId : '') ||
@@ -89,6 +93,10 @@ const client = createPublicClient({
   }),
 })
 const same = (a: Address, b: Address) => a.toLowerCase() === b.toLowerCase()
+
+export async function confirmBlock(number: bigint, hash: Hash) {
+  if ((await client.getBlock({ blockNumber: number })).hash !== hash) throw stale()
+}
 
 export async function snapshot(m: Manifest) {
   let chainId
@@ -223,7 +231,7 @@ export async function snapshot(m: Manifest) {
       e.refundable(at),
     ])
   // Catch a reset/reorg between the component reads before publishing the snapshot.
-  if ((await client.getBlock(at)).hash !== block.hash) throw stale()
+  await confirmBlock(block.number, block.hash)
   return {
     m,
     block,

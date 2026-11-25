@@ -1,6 +1,7 @@
 """Foreground owner of one disposable Anvil, with separate read and fixed-action interfaces."""
 import json
 import queue
+import re
 import secrets
 import sys
 from http.client import HTTPConnection
@@ -9,6 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from web3 import IPCProvider, Web3
 from artifacts import build_id, fixture
+from statement import EvidenceError, statement
 from journey import Conflict, Journey, check
 
 HOST = "127.0.0.1"
@@ -45,6 +47,19 @@ class Reader(BaseHTTPRequestHandler):
             return self.send_json(403, None)
         if self.path == "/deployment.json":
             return self.send_json(200, self.server.manifest)
+        if self.path.startswith("/statement/"):
+            match = re.fullmatch(r"/statement/(0x[0-9a-f]{64})/([0-9]{1,12})/(0x[0-9a-f]{64})", self.path)
+            if not match:
+                return self.send_json(400, {"message": "Expected run ID, as-of number and block hash."})
+            session = self.server.journey
+            try:
+                with session.lock:
+                    data = statement(session, match[1], int(match[2]), match[3])
+            except (EvidenceError, ValueError) as err:
+                return self.send_json(409, {"message": str(err)})
+            except Exception:
+                return self.send_json(503, {"message": "Historical RPC or ABI decoding failed. Check the owned archive and retry."})
+            return self.send_json(200, data)
         if self.path == "/controls" and self.headers.get_all("Origin") == [ORIGIN]:
             session = self.server.journey
             with session.lock:

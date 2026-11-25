@@ -366,3 +366,7 @@ section {
   font: inherit;
   display: block;
 }
+
+#statement code {
+  overflow-wrap: anywhere;
+}

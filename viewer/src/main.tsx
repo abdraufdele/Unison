@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { formatUnits, zeroHash } from 'viem'
 import { deployment, snapshot, ReadIssue, type Snapshot } from './read'
 import { DemoControls } from './controls'
+import { AgreementStatement } from './statement'
 import './style.css'
 
 const report =
@@ -273,6 +274,7 @@ function App() {
         )}
         {data && <DemoControls key={data.m.runId} s={data} stale={!!issue} refresh={refresh} />}
         {data && <Data s={data} />}
+        {data && <AgreementStatement key={data.m.runId + data.block.hash} s={data} stale={!!issue} />}
         <aside>
           <h2>What the agreement measures</h2>
           <p>
