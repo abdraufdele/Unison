@@ -4,7 +4,7 @@
 
 One treasury, one manager, one token pair, one fixed-fee Uniswap v4 pool, one active position, one fixed period and a separate compensation budget. Treasury owns principal, idle assets and LP fees. Compensation purchases agreed service, not profit or manager effort.
 
-M1 passed only the isolated compatibility/accounting experiment. Full-product M2–M8 work is not complete. M0 service terms, customer acceptance and preliminary economic justification remain pending. Documentation preparation is not a full-build or deployment authorization. Project ID supplied by the user: HK-UHI11-1275.
+M1 passed the isolated compatibility/accounting experiment. M2 covers bounded management and independent principal recovery on a local chain with mock assets. M3 service-time accounting passed the local C1 engineering criteria. M4 earned compensation, reserves and terminal refunds passed the local C1 engineering criteria. M5 closeout passed the local C1 engineering review. M6's local matched measurement is complete. Its buyer-specific economic exit remains open. M7 has a verified local agreement page with fixed demo actors. The author replayed payment failure and independent principal exit, swap interruption and recovery, and a separate permitted manager rerange. A block-pinned statement and JSON export reconcile service intervals and transfers. Two author rounds from a clean checkout reproduced the financial outcomes. The M8 judge documents are packaged. Independent A6 rehearsal, a human-timed video and submission remain open. M0 candidate C1 is specified. Customer acceptance and preliminary economic justification remain pending. The user authorizes a narrow experimental hackathon MVP on a local chain with mock assets while A1 and preliminary A2/A3 continue in parallel. Technical completion establishes neither customer acceptance, product-market fit nor economic advantage. Real-fund use and public deployment are outside this decision. Project ID supplied by the user: HK-UHI11-1275.
 
 Read only the next milestone, its applicable gates and relevant source/evidence. Older recurring-epoch proposals are superseded by this single-period plan. Missing feedback stays pending; a deadline or commit target cannot pass a gate.
 
@@ -22,9 +22,9 @@ Obtain dated feedback from at least one prospective treasury operator and one ma
 
 Compare passive liquidity/owner exit; bounded management with time-prorated retainer/simple escrow; and identical management with Unison service pay. Include an observer plus programmable settlement where it is a credible alternative. Match inventory, funded compensation, duration, fee settings and incoming order intentions. Allow fills/prices to differ when liquidity differs.
 
-**Pass:** reproducible results show a useful service/reconciliation/closeout advantage for the stated buyer, including negative cases. Lower manager pay alone creates no new joint economic value. Preliminary comparison feasibility and a defensible reason to test precede the full build; final comparison uses the complete lifecycle.
+**Pass:** reproducible results show a useful service/reconciliation/closeout advantage for the stated buyer, including negative cases. Lower manager pay alone creates no new joint economic value. Record preliminary comparison feasibility and a defensible reason to test while the local experiment proceeds. Final comparison uses the complete lifecycle.
 
-**Status:** partial M1 accounting evidence; no demonstrated complete-workflow superiority.
+**Status:** buyer-specific gate pending. The [M6 executed comparison](docs/M6-COMPARISON.md) found identical service and execution under the two matched managers. Both recovered a fill passive missed. Unison automated different settlement in interrupted cases. The observer remains modeled and the buyer's need for direct settlement is unverified.
 
 ### A3. Justified total cost — M0/M1 preliminary, M6 final
 
@@ -32,7 +32,9 @@ Measure comparable no-hook/hooked active, repeated and ended swap paths; deploym
 
 **Pass:** the buyer-specific benefit justifies total added cost. No universal gas threshold; an inconclusive or unfavorable benchmark is not a pass. Recheck provisional economics against final workflow measurements.
 
-**Status:** partial. Controlled M1 swap increments: 97,462 outward, 57,636 return and 26,904 after termination. These are diagnostic samples, not a typical average or full transaction-cost estimate. The pool cannot detach its hook after termination.
+**Status:** buyer-specific gate pending. M6 measured full local receipts. The interrupted one-period premium over the retainer was 9,405,354 gas, including 144,106 borne by traders. Review, monitoring, capital pricing and avoided buyer work remain unmeasured. [M6 payer costs and sensitivity](docs/M6-COMPARISON.md)
+
+Historical controlled M1 swap increments: 97,462 outward, 57,636 return and 26,904 after termination. These are diagnostic samples, not a typical average or full transaction-cost estimate. The pool cannot detach its hook after termination.
 
 ### A4. Complete closeout and asset rights — M2/M4/M5
 
@@ -42,7 +44,7 @@ Acceptance and full funding precede activation. Cover draft cancellation, expiry
 
 Use recipient-specific compensation failure or an independently failing compensation token. Globally pausing a token also used as principal does not isolate payment failure. State functioning-contract/core/chain and transferable-principal assumptions.
 
-**Status:** incomplete. M1 has no full acceptance/funding prerequisites or refund path; its residual 100 payment tokens remain unrecoverable through supported functions.
+**Status:** passed for the local C1 engineering experiment. Cancellation, termination, effective expiry, delayed close, independent principal receipt and exact earned/refund rights reconciled across the [M5 closeout matrix](docs/CLOSEOUT.md). Recipient-specific failures preserved the independently payable rights. Functioning contracts, transferable principal tokens and chain inclusion remain assumptions. The separate M1 experiment still lacks a supported refund for its residual 100 tokens.
 
 ### A5. Challenge invariants — M3–M6
 
@@ -50,13 +52,15 @@ Correct implementation must pass first. In isolated copies deliberately permit e
 
 **Pass:** independent balance/time reconciliation, boundary tests and stateful action sequences hold; selected mutants fail as intended. Compilation errors do not count as detection. Preserve unchanged source and failures. Tests are not an audit.
 
-**Status:** partial M1 accounting/mutation evidence only.
+**Status:** the specified local challenges passed. M1/M3 detect omitted pre-change accounting, M4 detects loss of earned reserves, and M5 detects actual post-expiry removal and a payment-dependent failure of principal receipt. The generated closeout corpus reconciles time, token balances, position changes, fees and retries. Coverage is bounded to C1 and the tested action families.
 
 ### A6. Reproducible demonstration — M7/M8
 
 Show one actual local journey: acceptance/funding, permitted action, specific forbidden-action rejection, third-party swap interruption/recovery, earned payment, compensation failure, termination, principal receipt and subsequent claim/refund rights.
 
-**Pass:** another developer reproduces pinned setup; two fresh reset runs match state and balances. Label mock tokens, accelerated time, estimates and known limits. Use actual transactions, not chart changes. Full journey remains pending.
+**Pass:** another developer reproduces pinned setup; two fresh reset runs match state and balances. Label mock tokens, accelerated time, estimates and known limits. Use actual transactions, not chart changes.
+
+**Status:** Two author-run rounds from the published revision matched on service, settlement and principal across six fresh deployments. A second developer still needs to complete the [independent checklist](docs/A6-REVIEWER.md) and supply dated evidence.
 
 ## Eight mitigations in priority order
 
@@ -73,7 +77,8 @@ Record evidence and residual risks at each milestone. This checklist does not es
 
 ## Priority 0 / M0: decide exactly what job is purchased
 
-**Status: pending.** Write docs/SERVICE-SPEC.md before dependent full-product work:
+**Status: candidate specified, gate pending.** [Service specification C1](docs/SERVICE-SPEC.md) covers the proposed agreement. The M0 review covers these requirements.
+
 - Accepted identities, fixed recipients, token/pool terms, duration, funding, activation deadline and budget.
 - Exact band/reference derivation, min L, width/tick/amount/deadline/frequency limits and token decimals.
 - Terms revision and acceptance binding; draft edits invalidate acceptance; activation checks current acceptance and funding.
@@ -85,7 +90,7 @@ Record evidence and residual risks at each milestone. This checklist does not es
 
 ## Priority 1 / M1: prove the plumbing with real v4 contracts
 
-**Status: bounded PASS, 19 November 2026.** See [M1 status and evidence requirements](docs/M1-STATUS.md). Reuse that evidence and source; do not restart M1 because older docs describe it as unstarted.
+**Status: bounded PASS on Windows, 19 November 2026, reproduced on native WSL, 23 November 2026.** See [M1 status and evidence requirements](docs/M1-STATUS.md). Reuse that evidence and source; do not restart M1 because older docs describe it as unstarted.
 
 Direct PoolManager vault ownership; explicit vault checkpoint before liquidity changes and refresh after; afterSwap observes third-party swaps. The narrow experiment uses beforeAddLiquidity admission control. No remove/donation/return-delta/dynamic-fee callbacks, canonical PositionManager NFT or Permit2 requirement.
 
@@ -93,11 +98,15 @@ Direct PoolManager vault ownership; explicit vault checkpoint before liquidity c
 
 ## Priority 2 / M2: enforce the treasury's control and exit
 
-**Depends:** M0 gates and bounded M1. Implement AgreementVault acceptance/funding coordination and one immutable active agreement. Manager may only add/remove/rerange within agreed bounds using available inventory. Collected fees stay treasury-owned.
+**Experimental local dependency:** candidate C1 and replay of the bounded M1 foundation on the target toolchain. A1 and preliminary A2/A3 stay open in parallel. The [C1 specification](docs/SERVICE-SPEC.md) records the acceptance boundary and local build decision. Implement AgreementVault acceptance/funding coordination and one immutable active agreement. Manager may only add/remove/rerange within agreed bounds using available inventory. Collected fees stay treasury-owned.
+
+**Complete for the local C1 engineering experiment.** The funded vault activates against a fresh preflight and owns the seed in the pinned core. Real-core tests cover authorized add, remove, reopen and atomic rerange, every M2 rejection path, rollback of a one-unit inventory shortfall, immediate revocation and independent treasury receipt. Pre-activation cancellation and its separate refund remain available. See the [manager-operation evidence](docs/MANAGER-OPERATIONS.md) and [activation and recovery evidence](docs/ACTIVATION-RECOVERY.md). The [M5 closeout review](docs/CLOSEOUT.md) covers the complete local asset-rights gate.
 
 **Exit:** permitted adjustment succeeds; unauthorized caller/recipient/pool/range/amount/deadline paths fail. Rerange failure preserves old state atomically. Revocation blocks subsequent manager operations; treasury removes and receives assets without manager cooperation. No generic executor.
 
 ## Priority 3 / M3: add an attributable service clock
+
+**Complete for the local C1 engineering experiment.** The real-core swap, position, independent interval and mutation results are in the [service-clock evidence](docs/SERVICE-CLOCK.md).
 
 **Depends:** M2. ServiceHook tracks exact active position: sufficient L, full agreed-band coverage, in-range tick, permitted fees and active period. A fresh valid opening reference fixes the sole band; later oracle failure cannot gate settlement/exit.
 
@@ -106,6 +115,8 @@ Checkpoint old state before changes; install actual new state. Retired/unrelated
 **Exit:** known real-swap intervals reconcile, lower-inclusive/upper-exclusive semantics hold, same-time transitions add zero seconds, delayed checkpoints clip correctly and no pre-activation/post-end earnings occur. Define interfaces/events now; a simple wireframe is enough.
 
 ## Priority 4 / M4: fund and calculate manager compensation
+
+**Complete for the local C1 engineering experiment.** The [settlement evidence](docs/COMPENSATION.md) records the cumulative rounding, fixed recipients, exact transfer and failure regressions, and compiled reserve mutation.
 
 **Depends:** M3. CompensationEscrow receives/reserves one budget before activation. Supported token transfers must match actual received amounts.
 
@@ -120,11 +131,15 @@ Use base units/full precision. Claims pay only fixed manager recipient; repeated
 
 ## Priority 5 / M5: prove complete closeout under failure
 
+**Complete for the local C1 engineering experiment.** The [closeout review and evidence](docs/CLOSEOUT.md) maps all product writes, terminal rights, failure assumptions and targeted mutations.
+
 **Depends:** M4. Termination checkpoints, freezes entitlement and revokes authority without transferring compensation. Keep pull-claim, unearned refund, liquidity removal and principal receipt separately callable. Natural expiry disables management even without a transaction at the exact deadline.
 
 **Exit:** A4 passes for early termination, expiry, cancellation, repeated calls, delayed transactions and residual assets. Prove a manager-specific payment failure, independent principal receipt, then restored manager claim. Exit returns current assets, not guaranteed original quantities/value.
 
 ## Priority 6 / M6: prove what Unison improves
+
+**Measurement complete; economic exit pending.** The [M6 report](docs/M6-COMPARISON.md) reconciles seven scenarios across three executed arms and assesses the observer alternative.
 
 **Depends:** M5 for final evidence. Recheck A2/A3 using full lifecycle. Include passive flat case, feasible recovery, unavailable inventory, delayed execution and external-price drift. Record native LP fees, service, compensation, inventory, marked value, slippage, capital/opportunity costs and gas separately.
 
@@ -132,7 +147,7 @@ Use base units/full precision. Claims pay only fixed manager recipient; repeated
 
 ## Priority 7 / M7: finish one usable judge page
 
-Thin reads start after M4; tested writes connect as M5 paths stabilize. Polish after M6.
+The [local agreement viewer](docs/LOCAL-VIEWER.md) reads a verified deployment at a single mined block. Browser checks cover funded, qualifying, interrupted and terminal states. Its fixed local actions also have mined receipt and balance evidence for interrupted service and payment-failure closeout. The downloadable event-based statement passed author browser checks for funding, active service, interrupted service, permitted manager rerange, termination and unfinalized expiry. Independent M7/A6 rehearsal remains open.
 - One agreement page: accepted terms, owner/manager roles, separate balances, qualification/reasons, earned/paid/unpaid/refundable, supported actions and closeout statement.
 - Reconstruct payment from events/initial state; contract entitlement remains authoritative. Export a readable statement and JSON with terms, interval/block coverage, balances, obligations and transaction references. Report incomplete data.
 - Distinguish claimable/refundable from actually transferred funds. Explain nonqualification without assigning manager blame.
@@ -144,9 +159,15 @@ Thin reads start after M4; tested writes connect as M5 paths stabilize. Polish a
 
 ## Priority 8 / M8: package, rehearse and submit
 
+**Packaging published. M8 and A6 remain open.** Use the [judge README](README.md), [pitch, timed script and inspection route](docs/M8-DEMO.md), [criteria and hard questions](docs/M8-JUDGE.md) and [submission checklist](docs/M8-SUBMISSION.md). The checklist names the exact runtime and evidence revisions for HK-UHI11-1275.
+
 **Depends:** M5–M7 and A1–A6 evidence. README leads with implemented promise, status, exact pinned setup/test/reset commands, architecture, evidence and limits. Preserve third-party licenses and accurately distinguish reused/new work, including Essentials reuse. Claim integrations only with code/action evidence.
 
 Verify another developer's fresh setup and two reset replays. Record a human-narrated video under the supplied five-minute limit. Confirm public repo/branch and submission access. No invented audit, novelty, customer, profit or prize claims.
+
+### Before integrating the submission branch
+
+Remind the user to choose **Create a merge commit** when merging development into main. Preserve original individual commits and IDs; no squash, rebase-and-merge, backdating or force-push. Obtain explicit merge authorization. Record the development tip before merging and verify it is an ancestor of the resulting main; inspect the commit list and default branch before submission. No merge is authorized by recording this reminder.
 
 ## Schedule and scope cuts
 
@@ -162,8 +183,180 @@ Inspect status/diff, check the change, stage explicit files, commit and push onl
 
 ## Progress record
 
-- Current: M0/A1 pending; A2/A3/A5 partial M1 evidence; full A4/A6 incomplete.
-- Latest documentation review: 23 November 2026. Historical evidence dates are preserved. Research form prepared/published; no customer acceptance inferred.
-- Next: exact service specification and buyer/manager feedback; provisional simpler-alternative/cost decision.
-- Open: customer-approved numerical terms, opening-reference conversion, full-product interfaces and failure behavior; retain actual M1 pins as experiment provenance.
+- M0/A1 and preliminary A2/A3 remain pending. M1 through M5 passed their local engineering criteria. A4 and the specified A5 challenges passed for local C1. A6 remains open.
+- Latest documentation review: 25 November 2026. Historical evidence dates are preserved. Research form prepared/published; no customer acceptance inferred.
+- Next evaluate dated evidence from a treasury operator and manager on C1, their existing reconciliation costs and their tolerance for the measured payer burdens. The M7 interactive page has an author-verified payment-failure journey. The agreement statement now reconciles events with the contract snapshot. Both fresh author rounds covered the permitted manager action, interruption/recovery and failed payment. The independent checklist is ready for a second developer.
+- Parallel validation task is to evaluate user-supplied private evidence from one treasury operator and one manager for the same C1 use case. Obtain their separate dated decisions, one reconciliation example with units and payer, and acceptable evidence and cost limits. If evidence is unavailable, keep the worksheet unsent pending explicit outreach instructions. Recalculate the comparison against the simplest arrangement that meets the stated job.
+- Open decisions include buyer-approved depth, budget, duration, operational bounds and a suitable opening source. C1 proposes the conversion, contract interfaces and failure behavior. Full-product evidence is pending.
 - Record each substantive work session: terms/source revision, actual commands/results, commit/push status, evidence location, residual defects and next dependency-ready action.
+
+- Repository setup, 23 November 2026: public abdraufdele/Unison created; bootstrap commit e87b16b published on main. Development branch development tracks origin/development. Repository-local author: abdraufdele <apexnaijatv124@gmail.com>. WSL Git uses the existing authenticated GitHub CLI credential helper. No credentials are stored in tracked files. This records Git setup, not a product acceptance pass.
+
+- M0 specification session, 23 November 2026. Published [C1](docs/SERVICE-SPEC.md) in commit `bc3d08f` on `origin/development` and verified the live branch with `git ls-remote`. The agreement uses mock terms for review. Reviewed actor permissions, fixed recipients, state reachability from Draft through each terminal reason, and separate exit/claim/refund rights. Local Python checks reconciled the five settlement examples, zero/funded cancellation, cumulative rounding, prior claims and refund order. Decimal calculations checked the aligned opening band, seed inventory and illustrative trade. Relative links resolved and the staged spec passed `git diff --cached --check`.
+- A1 still needs dated feedback from both roles accepting the same revision for a stated use case. Preliminary A2 needs a credible service or reconciliation advantage over passive LP, a retainer and observer-based settlement. Preliminary A3 needs buyer-specific benefit against estimated total costs, including trader and operator costs. No role feedback or comparison results were obtained in this session. M0 remains open and the bounded M1 result stands.
+
+- M0 validation preparation for C1 (`bc3d08f`). Prepared a private, unsent two-role review worksheet in the ignored local validation directory. The [public comparison and cost worksheet](docs/C1-COMPARISON.md) matches four arrangements across flat, interrupted and infeasible-recovery cases. It separates payer workloads, diagnostic M1 measurements, synthetic assumptions and missing inputs. The illustrative three-swap trader increment at 10 gwei/gas is 0.00182002 ETH. Other lifecycle costs and buyer benefit remain unknown.
+- Preparation checks covered scenario payouts and reserves, inventory bounds, cost units and sensitivities, local links and Git exclusion of the private directory. No customer responses, outreach or new M1 measurements. A1 and preliminary A2/A3 remain pending. The preparation and its checks are recorded together in the development commit titled “Prepare the C1 comparison and validation worksheets”.
+
+- Experimental-build decision and M1 reuse preparation. The [import record](experiments/m1/README.md) identifies five byte-preserved files, the two archive manifests, Windows evidence, reference Git objects, dependency licenses and material M1/C1 differences. Verified source and dependency pins, compiler hashes, local Forge version, import hashes and public-file scope. Published the isolated import in commit `b9629d9` on `origin/development`. Local links, Bash syntax and Forge config/remapping checks passed. WSL setup and replay are pending. No dependency installation, compilation, test execution or deployment took place in this session. The complete A4 closeout, A5 regression challenges, final A2/A3 measurement and A6 demonstration remain engineering/evidence gates.
+
+- Native WSL replay, 23 November 2026. Published the [replay report](experiments/m1/WSL-RESULT.md) at `f0a4893` on `origin/development`. Verified both dependency revisions, clean checkouts, compiler hash and effective Forge settings. The original and corrected assessment suites passed 19 and six tests with exit 0. The single omitted-checkpoint mutant compiled and exited 1 at the intended accounting assertion. At expiry, the trace reconciled 200 qualifying seconds, 200 paid and 100 left in escrow. All five imported hashes passed before and after. Private commands, raw outputs and exit codes remain in the ignored evidence directory. A1 and preliminary A2/A3 are pending. C1 acceptance, funding and complete closeout still require their own implementation and tests.
+
+- First local M2 slice. Published the [acceptance implementation](src/AgreementVault.sol), [tests](test/AgreementVaultAcceptance.t.sol) and canonical C1 field list together at `9aaa170` on `origin/development`. The vault commits to the exact candidate numerical schedule, roles and fixed recipients, full pool/custody identities and opening rules. Revisions clear both approvals even when restoring previous bindings. A live observation, derived ticks and start time belong to future activation.
+- Executed the root Foundry suite offline with Forge 1.8.7 and native solc 0.8.26+8a97fa7a. Compilation succeeded, 12 tests passed, zero failed or skipped, exit 0. The wrong-hash case ran 256 fuzz inputs. Checks included a separately encoded commitment vector, single-field revisions on the same vault at the same revision, invalid-input rollback, both cutoff boundaries, event idempotence and the two-method write surface. Formatting and all five M1 import hashes passed. Local test calls establish the consent behavior only. A1 and preliminary A2/A3 remain pending, along with complete M2 control/exit and later accrual, compensation, refunds and payment-failure closeout.
+
+### C1 funding and pre-activation recovery, 24 November 2026
+
+Published the contracts and their tests together at `eb13a58` on `origin/development`. Verified the full implementation commit with `git ls-remote --exit-code origin refs/heads/development`. The [root setup](README.md#setup) records the exact commands, native pins and constructor/revision wiring. No external Solidity dependencies were added.
+
+| Evidence | Local result |
+| --- | --- |
+| Complete root suite | Native Forge 1.8.7, pinned Linux solc 0.8.26. Compiled successfully. 12 acceptance, 15 funding and 9 cancellation/recovery tests passed (36 total, 0 failed, 0 skipped, exit 0). Wrong-hash fuzz test ran 256 inputs. |
+| Atomic custody | Treasury debits were 2,000,000,000 A and 2,100,000,000 B units. Vault credits were 2,000,000,000 of each, escrow credit was 100,000,000 B. A failure on each leg, including the final budget leg, restored balances, allowances, credits and Accepted state. Prior gifts, wrong decimals or wiring, short receipts, unexpected debits and malformed transfer results were tested. |
+| Cancelled custody | Cancellation made no transfer. A blocked escrow-to-treasury B route left 100,000,000 B due while the treasury withdrew both principal amounts. Enabling that route paid the original refund once. Failure on the second principal transfer rolled back the first. Escrow gifts remained outside refund rights. |
+| Integrity | Root Solidity formatting and staged whitespace checks passed. All five M1 SHA-256 checks passed before and after (exit 0). The acceptance suite and M1 import were preserved. |
+
+No unresolved root test failures. A1 and preliminary A2/A3 remain pending. M2 still needs activation and bounded management. Accrual, earned reserves, manager payment failure with a live position, and complete closeout remain open. Next implement the M2 activation prerequisites described above.
+
+### C1 opening-reference prerequisite, 24 November 2026
+
+Published implementation, independent arithmetic oracle and tests together at `f25c557` on `origin/development`. Verified the pushed implementation ref with `git ls-remote --exit-code origin refs/heads/development`. The [opening-reference note](docs/OPENING-REFERENCE.md) records the accepted mock interface, exact comparison, overflow bounds, expressible feed boundaries and future activation call. The canonical terms commitment vector still passes.
+
+| Check | Result |
+| --- | --- |
+| `python3 scripts/check_opening_grid.py` | Exit 0. Independent integer recurrence certified all 29,575 grid floors and emitted digests and selected feed vectors. All three Solidity digest comparisons matched. Parity produced [−120, 120). |
+| Complete root suite using the [pinned native command](README.md#setup) | Exit 0. 51 passed, 0 failed, 0 skipped across five suites. These include 8 band, 7 adapter/vault, 12 acceptance, 15 funding and 9 cancellation tests. Coverage/minimality and wrong-hash fuzz tests ran 256 inputs each. |
+| Integrity | `forge fmt --check src test`, staged whitespace checks and all five M1 SHA-256 checks passed (exit 0). The existing clean core checkout supplied the MIT math imports through a root-relative remapping. |
+
+No unresolved suite failures. The adapter asserts the reported price and completion. Live-source selection and independent truth verification remain open. Next validate the actual pool and seed feasibility. Activation, bounded management, service accrual, settlement of earned rights and live-position exit still require implementation. A1 and preliminary A2/A3 remain pending.
+
+### C1 read-only activation preflight, 24 November 2026
+
+Published implementation and real-core tests together at `f5fea1e` on `origin/development`. Verified the implementation tip with `git ls-remote --exit-code origin refs/heads/development`. The [preflight report](docs/ACTIVATION-PREFLIGHT.md) gives the exact commands, custody and pool checks, four observed quotes versus signed principal deltas, local fixture assumptions and upstream license scope.
+
+- Complete pinned root suite passed 66 tests across six suites, 0 failed, 0 skipped, exit 0. All 51 previous tests passed. All 15 preflight tests passed. Both existing fuzz tests ran 256 inputs. An initial targeted run exited 1 when a test chain-ID change carried into a cutoff assertion. Isolating the chain fixture preserved both checks. No unresolved suite failures.
+- Four traced tests passed, exit 0. At parity the seed required exactly 598,173,777 units of each token. Interior and one-sided edge quotes also equaled actual core principal debits. All six one-unit-short trials failed settlement and rolled back. A downward swap to parity left stored tick −1 and selected the correct side of tick zero.
+- Native formatting, independent grid check, staged whitespace and all five M1 import hashes passed. The existing core checkout and its pinned Solmate submodule supplied the dependencies. All writes to pools and positions were confined to the local test fixtures.
+- M2 remains partial. Design terminal recovery before accepting vault-owned liquidity. Then implement atomic activation and seed ownership with a fresh in-transaction preflight. Product hook wiring, context authorization, bounded management, accrual and complete live-position exit remain open. A1 and preliminary A2/A3 remain pending.
+
+### Atomic treasury activation and terminal principal recovery, 24 November 2026
+
+Published the vault, product hook and real-core integration tests together at `50b2e93` on `origin/development`. Verified the implementation tip with `git ls-remote --exit-code origin refs/heads/development`. The [recovery design and executed evidence](docs/ACTIVATION-RECOVERY.md) records the state transitions, constructor deployment, callback boundaries, base-unit reconciliation, commands and retained limitations.
+
+- A CREATE2-deployed product hook admitted the vault's single seed under salt 1. Core confirmed 100,000,000,000 L, with 598,173,777 A and B base units each spent at parity. Independent additions failed and an external trader's swap succeeded.
+- After the swap, removal returned principal of 698,218,788 A and 498,228,754 B units, plus 301,038 A units in fees. Idle and subsequent withdrawals delivered 2,100,346,049 A and 1,900,054,977 B units in total. Principal recovery succeeded while adapter and escrow calls failed. Exact expiry enabled exit before finalization and a later finalizer recorded the original end. The full 100 B budget remains locked after activation pending earned-right settlement.
+- Complete pinned root suite passed 77 tests in seven suites (66 previous, 11 new), 0 failed, 0 skipped, exit 0. Both previous fuzz tests ran 256 inputs. An initial targeted invocation stopped at discovery (exit 1) because Forge reserves the `testFail` prefix. Renaming that test preserved its assertions. No unresolved suite failures. Trace replay, runtime size, formatting and all five imported hashes passed (exit 0).
+- Runtime bytes were 21,743 for AgreementVault, 1,158 for ServiceHook and 1,887 for CompensationEscrow with the normal EVM limit. The M1 tree and root configuration were preserved. M2 remains partial. Next implement and challenge bounded manager adjustments and revocation. Service-time accounting, earned reserves, full compensation-failure closeout and customer/economic gates remain open.
+
+### Bounded manager operations and M2 exit, 24 November 2026
+
+Published the vault, hook, fixed opening-quote helper and real-core tests together at `e74dbac` on `origin/development`. The starting checkout was clean at `67d80c6`. The push succeeded and `git ls-remote --exit-code origin refs/heads/development` returned `e74dbacadacba55b2250e584808e922aaf5f8aa8`. The [management report](docs/MANAGER-OPERATIONS.md) records the interface, identity, per-leg authentication, size-driven extraction, independent balance checks and replay commands.
+
+- The final pinned root suite passed 92 tests across eight suites, including all 77 prior tests and 15 manager tests. Zero failed or skipped, exit 0. Both fuzz tests ran 256 inputs. The separate rollback trace, product size build, opening-grid check, Solidity formatting and all five M1 SHA-256 checks passed, each with exit 0.
+- Both currencies exercised the hard 2,000,000,000-unit gross input cap despite fee offsets. Removal minimums excluded LP fees. A 1-unit B shortfall on the second rerange leg restored old core liquidity, balances, identity and cooldown. Funding that unit allowed the same request to open 167,676,999,673 L under salt 2 at the same timestamp.
+- Same-timestamp chain ordering and exact expiry revoked all manager actions. Terminal exit after a rerange and an external swap reconciled treasury principal and fees outside the manager price envelope with the adapter and escrow unavailable. The activated 100,000,000 B budget stayed in escrow.
+- Forge runtime/initcode bytes were 22,947/34,165 for AgreementVault, 1,390/1,807 for ServiceHook, 1,887/2,161 for CompensationEscrow and 4,895/4,921 for OpeningQuote. All fit normal limits including constructor arguments. Dependency pins and file-specific license notices were preserved. The staged implementation excluded local logs, build artifacts and dependencies.
+
+M2's local control and principal-exit criteria passed. There are no unresolved root test failures. Next implement M3 service time at the pre-change and post-change boundaries, including activation, external swaps, termination and expiry. Earned reserves, claims, post-activation refunds and complete payment-failure closeout require M4/M5. A1 and preliminary A2/A3 remain pending.
+
+### C1 cumulative service clock and M3 exit, 24 November 2026
+
+Published implementation, real-core tests and the isolated ordering challenge together in `4fb37a3` on `origin/development`. The starting checkout and live branch were at `c039822`. After push, `git ls-remote --exit-code origin refs/heads/development` returned `4fb37a3625e5bc32c3bf459a02b02427f2c6614a`. The [M3 evidence](docs/SERVICE-CLOCK.md) records the hook interface, custody lock, observation boundaries, retained limitations and replay commands.
+
+- The external trader reached stored tick 120 at elapsed 90 and −1 at 210. The independently summed intervals [0, 90) and [210, 300) gave Q = 180. Passive delivery gave 300 and early termination at 120 gave 120. Below-minimum, empty, unrelated, extended and retired positions, same-time changes, delayed close and partitioned checkpoints reconciled.
+- The one-unit rerange shortfall restored persisted Q, timestamp, core position, balances, grants and cooldown. Its successful retry credited the original interval exactly once. Principal and LP fee receipt succeeded with adapter and escrow calls blocked, retaining frozen Q.
+- The pinned root suite passed 100 tests in nine suites, zero failed or skipped, exit 0. Three fuzz tests each ran 256 inputs, including 6,144 clock sequence steps. The separate three-test trace passed. The omission mutant compiled successfully and failed the unchanged full-removal assertion with `OldIntervalLost(100, 0)`, exit 1. The compiler-message check was corrected to accept a successful build with warnings. Both copies retained byte-identical tests.
+- All four product runtimes and initcodes with arguments fit normal limits. Vault runtime is 23,764 bytes with 812 bytes available. Formatting, size build, grid check and all five original M1 hashes passed. Mutation copies, logs and build artifacts are ignored.
+
+M3's local engineering criteria passed. Next implement M4 cumulative funded compensation with fixed-recipient claims, protection of unpaid earned reserves and terminal unearned refunds. Complete payment-failure settlement remains an M5 dependency. A1 and preliminary A2/A3 are pending.
+
+### C1 earned compensation and M4 exit, 24 November 2026
+
+Published the implementation, tests and mutation replay together in `8a1132c` on `origin/development`, from a clean starting tip of `95fdbf1`. The live ref after push was `8a1132c0475ba6a8d5c09a040a25c8065e0289fb`. The [M4 report](docs/COMPENSATION.md) records the settlement interface, formulas, exact receipts, sizes, commands and scope.
+
+- The exact funded budget of 100,000,000 units and the original 300-second duration produced E = 60,000,000 at Q = 180. A claim at one second paid 333,333 and a second claim at three seconds paid 666,667. Full service, early close, both pull orders and exclusion of gifts reconciled to actual balances.
+- At Q = 120 the manager received 40 B. At Q = 180 the manager-specific transfer failed and treasury terminated at the same timestamp. With the adapter also failing, principal exit delivered 2,100,346,049 A and 1,900,054,977 B units including fees and idle assets. The treasury received its separate 40 B refund, escrow retained the 20 B unpaid reserve and the restored manager route paid those 20 B. Final C = 60 B, R = 40 B, accounted escrow = 0. A separate blocked refund left its 60 B recoverable through principal exit and manager payment.
+- Full pinned root suite passed 109 tests in ten suites, zero failed or skipped, exit 0. Three fuzz tests each ran 256 inputs. Both traced failure cases passed. The one-expression reserve mutant compiled (exit 0) and the unchanged test failed on the intended raw escrow balance, expected 20,000,000 and actual zero (exit 1). Formatting, grid, product size and all five M1 hashes passed.
+- Vault runtime is 23,891 bytes, leaving 685 bytes. All four products fit normal runtime and argument-inclusive initcode limits. The local M4 payment criteria passed. M5 closeout review, broader invariant challenges, final economic measurement, customer validation and the reproducible demonstration remain pending.
+
+### M5 closeout review and targeted invariant challenges, 24 November 2026
+
+The clean starting checkout and live development ref were `b9f011c`. Published the tests and isolated mutation replay in `41bf167` on `origin/development`. A transient DNS failure on the first push cleared on retry. The live development ref then matched `41bf167d6e97664d98e14ece79d04ce47742b79e`. The [closeout matrix](docs/CLOSEOUT.md) records code paths, tests, remaining assumptions, commands and observed failures.
+
+- No product defect was demonstrated under the tested assumptions. The funded rights, callback authorization, frozen entitlement and principal-exit paths required no source or ABI change. The local M5/A4 engineering gate and specified A5 challenges passed.
+- 32 seeded lifecycles exercised 768 shuffled active/terminal action slots, 16 early terminations and 16 expiries with delayed finalization. Independent accounting reconciled 110 positive claims, 32 positive refunds, 32 live exits and 52 positive principal withdrawals. Each run exercised manager and refund route failures, a reverted second rerange leg and a successful retry.
+- Both mutants compiled, each with exit 0. The expiry mutant performed the forbidden full removal at exact end and the test found actual core L zero instead of 100,000,000,000. The mandatory claim in the exit mutant hit the blocked manager route and treasury was short 498,228,754 B base units. Both native tests exited 1 at their intended balance/position assertions. Prior checkpoint and reserve mutation evidence remains applicable.
+- Full pinned suite passed 115 tests in 12 suites, zero failed or skipped, exit 0. The three existing fuzz tests each ran 256 inputs. An initial 32-sequence single test transaction exhausted the normal gas limit. Four eight-seed transactions passed with the same seeds and assertions. Focused traces, product sizes, formatting and all five imported M1 hashes passed. Vault runtime remains 23,891 bytes with 685 bytes available.
+- Next undertake M6 matched scenarios and total-cost measurement. The M4 interfaces remain stable for thin reads. Customer acceptance, economic justification and a reproducible full demonstration remain open.
+
+### M6 matched lifecycle and cost measurement, 24 November 2026
+
+The interruption left a successful comparison build and no scenario receipts. Reused the compiled artifacts. The first interrupted Unison/retainer comparison reconciled before the remaining workloads ran on the same disposable local chain. Published the harness, checks and public ledgers in `590d8e1`. Verified the live development tip at `590d8e13238bde59e4850d54813ce6c2fac2643d` after push. The [cost and decision report](docs/M6-COMPARISON.md) records the measured boundaries and replay.
+
+- Reconciled 21 lifecycles, 45 incoming orders and 150 receipt rows counting common and arm setup once. Tracked actual order balances, fee growth, qualifying intervals, LP and idle principal, compensation rights and marked final holdings. Both managed arms had identical Q, liquidity, fills, treasury fees and principal on every path. Their feasible rerange added 180 qualifying seconds over passive and filled a 50 B order. Both infeasible attempts reverted. Both isolated payment failures preserved the same independent exit and 20 B earned reserve.
+- The interrupted retainer and Unison paid 100 B and 60 B for the same 180 seconds. The incremental treasury, manager and trader gas was 9,190,339, 70,909 and 144,106 respectively. The joint 10-gwei hurdle was 0.09405354 ETH plus any incremental non-gas costs. Payout redistribution supplies no joint savings. Drift left full fixed-band pay intact despite adverse execution against the external mark.
+- Checked all 58 source hashes referenced by the deployed artifact set, compiler settings, dependency pins, Solidity formatting, offline result reconciliation and staged public scope. Product source, shared fixtures, root configuration and the M1 import were unchanged. The prior 115-test product result stands. The observer's certified settlement, disputes, latency and costs remain modeled.
+- The local M6 measurements are available. Its buyer-specific exit, A1 and preliminary/final A2/A3 remain pending. Next apply evidenced workload counts, existing dispute/reconciliation costs and payer tolerances to the measured hurdles, and obtain both roles' assessment of the same terms when feedback is available. No outreach, frontend work or deployment beyond the local fixture.
+
+### M7 local read-only viewer, 24 November 2026
+
+From clean, remote-verified `a11c24b`, published the viewer, ABI export, browser checks and disposable setup at `df37120`. After push the live development ref was `df37120da77532be3d2b8c673337aa67cf704723`. The [local runbook](docs/LOCAL-VIEWER.md) records start, stop, identity-bound reset, commands, tool versions and actual state checks.
+
+- The launcher reuses the M6 product deployment and real hook CREATE2 procedure, with an optional stop after funding and random per-run agreement ID. The manifest lives in memory and binds loopback RPC, chain, funded block/hash, addresses, code hashes and the verified artifact build. Browser reads use the compiled read ABIs and one block number, followed by a block-hash recheck.
+- TypeScript and the production build passed. A real headless Chromium opened the built page. Independent IPC reads and browser assertions agreed at funded block 22, qualifying block 24, interrupted block 25 and terminal block 26. Each page snapshot pinned 46 contract/code reads to its displayed block. Q progressed from 0 to 1 to 90 seconds. At termination escrow held 100 B, including 30 B reserved and 70 B refundable, with no payment or refund transferred.
+- The browser retained clearly stale values across transport and read failures, cleared values on identity errors, and rejected missing code, wrong chain, wrong marker, absent manifest and a saved manifest after an actual reset on chain 31337. The launcher rejected a mismatched reset ID. Normal state pages had no console errors or narrow-screen horizontal overflow. Test services were stopped. Runtime manifests, signer material, dependencies and build output were excluded from the commits.
+- The M1 import, product contracts, shared Solidity fixtures, root build configuration and recorded M6 CSVs stayed unchanged. The M6 offline checker verified all 21 ledgers, 45 orders and 150 receipt rows. The retained 115-test product result applies. Next implement and verify a reconstructible event-based statement/export in a separate task. Tested writes, the complete failure/exit journey and independent A6 reproduction remain pending. A1, A2 and A3 still require customer and economic evidence.
+
+### M7 interactive local demo, 25 November 2026
+
+Published the fixed local actor controller, page and browser checks in `e04496f`. The live `origin/development` ref after that push was `e04496f61e4c136bae9a9eabb0c203abd07b207b`. The [runbook](docs/LOCAL-VIEWER.md#run-the-payment-failure-journey) records all 19 local transaction hashes, both run IDs and the bounded replay command.
+
+- Chromium verified the funded-to-settled path at blocks 22–38. At Q=180 the escrow showed 60 B earned, 40 B already paid and 20 B reserved. The blocked 20 B claim reverted with the B token's transfer error. With the route still blocked, treasury terminated, removed all liquidity and received 2,100.346049 A and 1,900.054977 B including idle assets and fees. Treasury then received 40 B from escrow. Restoring the manager route paid the remaining 20 B. Repeated claim and refund transferred zero.
+- The identical bounded manager removal simulated successfully at active block 29. Its transaction at block 31 reverted with `InvalidPeriod()`. Both intended failures preserved payout rights and token balances. In the separate swap run the position stopped qualifying at tick 120 and resumed at tick −1. Q remained 90 during the interruption and reached 120 by termination. Independent balance reads agreed with the page.
+- Exact Host, Origin, run token, anchor, bindings, stage, actor and parameter checks constrain actions. Concurrent activation produced a single receipt. Page load and refresh produced none. Stale-run, duplicate, control/RPC failure and read-identity checks passed. A failed early reset assertion led to waiting for the replacement onchain ID to appear in the page. The complete corrected browser replay exited 0. TypeScript, the production build, ABI check and formatting passed.
+- Product contracts, M1 import, M6 measurements, package lock and dependencies were unchanged. The retained 115-test product result applies. Next reconstruct the statement from events and reconcile its coverage against contract state. A6 needs another developer to reproduce the pinned setup and full fresh-run scenario, including a permitted manager action. Final presentation and A1/A2/A3 customer and economic evidence remain open. M6 measured matching liquidity under the bounded retainer. The 40 B refund reallocates the existing budget.
+
+### M7 reconstructible agreement statement, 25 November 2026
+
+Published the collector, block-pinned statement section, JSON download and replay checks at `477d950`. The live development ref after that push was `477d950993f50dd373d90b909836c1c1ce666c65`. [Runbook, schema and browser evidence](docs/LOCAL-VIEWER.md#agreement-statement-and-json-export)
+
+- Coverage starts at vault deployment block 15. Both party acceptances and the funding transaction at block 22 are included. The collector compares bounded product logs with canonical transaction receipts, sums old qualification across checkpoint intervals, applies the original 300-second denominator, and reconciles rights, liquidity and movements against historical contract and token reads. The page rechecks its displayed block hash before enabling the download.
+- Seven Chromium downloads covered funding, active projection, blocked-payment termination, refund, restored final payment, interrupted service and contract-effective expiry without finalization. Closeout reconciled 180 s, 60 B earned, 40 B initially paid and 20 B reserved. The 40 B refund preserved that reserve and restoration paid it. At expiry, stored Q was zero and the end-clipped projection was 300 s. No close event had been emitted. Downloading left each fixture head unchanged.
+- A further Chromium download read the retained 12-event interruption history on the previous demo deployment at block 27. It reconstructed 90 s in range, 120 s outside, then 30 s back in range. It used a read-only test listener to access the existing owned IPC chain without replacing its running launcher.
+- Missing, duplicate and out-of-order historical logs were rejected. Browser checks rejected stale run identity, unknown schema/build, transport failure and a mismatch with contract earnings. TypeScript, production build, compiled ABI check, formatting and existing read-fault checks passed. Product contracts, M1 imports, M6 evidence and dependency pins were preserved. The retained 115-test product result applies.
+- The local node supplies all blockchain evidence. Its consistency checks do not prove provider completeness. The historical hook failure mask and failures outside the demo receipt journal have limited coverage. Next demonstrate a permitted bounded manager action. Independent fresh setup and A6 rehearsal, final presentation and A1/A2/A3 customer and economic validation remain open.
+
+### M7 permitted manager journey, 25 November 2026
+
+Published the fixed manager branch, browser controls and isolated replay at `104ca71`. The live development ref after that push was `104ca711b991925e1e6b5e9463c897060983db72`. The [runbook](docs/LOCAL-VIEWER.md#permitted-manager-rerange-on-a-fresh-run) records the parameters, full old and new identities, seven transaction hashes and replay command.
+
+- Chromium drove a verified fresh funded C1 run. After the first 30 s checkpoint, the named manager reranged from [−120, 120) to [−180, 180) at parity at 2031 s. Simulation and actual execution used the same terms, seed ID, 100,000,000,000 L, [2030, 2040] time window, [0, 1) execution tick, 900 A/B input limits and 598 A/B output floors. Salt 1 retired and salt 2 held the entire vault position. Independent core log and key reads confirmed at most one live identity. Cooldown advanced to 2061. Idle balances moved from 1,401.826223 to 1,104.082470 of each token with zero fees on the rerange.
+- The trader spent 603.584180 of the offered 700 B for 598.173776 A. The stored tick reached 120. The new position still covered the accepted band and qualified at that tick. The exported statement spanned blocks 15–30 with 19 product events and qualifying intervals of 30, 1, 59 and 90 seconds. At close, Q=180, earned and reserved compensation was 60 B, and 40 B was refundable. All 100 B stayed in escrow.
+- Removal returned 297.743752 A and 1,497.690955 B principal plus 1.810752 B in fees. Actual treasury receipts including idle assets were 1,401.826222 A and 2,603.584177 B. Core liquidity and vault token balances ended at zero. The UI showed pending, mined and rejected requests. A stale position ID, wrong run/stage and invalid request credentials could not submit a rerange. Concurrent duplicate requests produced one receipt.
+- TypeScript, production build, artifact bindings, browser statements and independent core/balance checks passed. Targeted payment-failure and interruption regressions passed, including the actual post-close rejection. The preserved block-27 deployment retained its run ID and head hash. Product contracts, M1, M6 and dependency pins were unchanged. The retained 115-test product result applies.
+- Next have another developer perform the pinned fresh setup and reproducibility rehearsal, then prepare the final presentation. This author replay does not pass A6. A1/A2/A3 still require dated customer decisions and buyer-specific economic evidence. The measured M6 retainer comparison remains applicable.
+
+### A6/M8 clean-checkout author rehearsal, 25 November 2026
+
+The author rehearsed public revision `eb4922d6a344987f6b041933bb0ce34ac9c6902d` in an isolated, clean checkout on a provisioned WSL2 host. The [rehearsal record](docs/A6-AUTHOR-REHEARSAL.md) gives tool versions, actual run IDs, block anchors, transaction hashes and balances. The full dependency clone and default browser download each exceeded 180 seconds. A shallow fetch of the pinned commit and a byte-range download of the same pinned browser completed setup. The five M1 hashes, Solidity build, generated ABI comparison and TypeScript/Vite build passed.
+
+- Each round used three funded deployments. Both manager runs closed at Q=180 with 60 B earned and reserved. Both interruption runs paused at Q=90 and closed at Q=120 with 40 B earned and reserved. Both payment runs closed at Q=180 with 40 B paid and 20 B reserved. The treasury withdrew 2,100.346049 A and 1,900.054977 B while the manager's transfer was blocked. The 40 B refund preserved the remaining 20 B for the manager, who received it after route restoration.
+- Across six identities, the browser observed 52 mined action receipts, including four intended reverts, and downloaded 16 statements. Event-derived quantities matched contract reads at the displayed block. Each of five named replacements rejected the old manifest and action credentials. Rehearsal services used isolated loopback and were stopped. The historical block-27 endpoint was unavailable for live verification.
+- Rehearsal evidence and setup fallbacks were published at `e3570ee4f7f3a66ff721b9881c1d908593924610` and that live development tip was verified. Subsequent reviewer instructions and status edits are documentation only. The runtime revision exercised remains `eb4922d`.
+- Next obtain a dated, independent clean-checkout replay using the [developer checklist](docs/A6-REVIEWER.md), then prepare the M8 presentation. A6 remains pending. A1/A2/A3 still need customer decisions and buyer-specific economics. M6 measured matching liquidity delivery under the bounded retainer. The refund redistributes the budget.
+
+### Viewer dependency assessment and presentation readiness, 25 November 2026
+
+The [assessment](docs/VIEWER-DEPENDENCIES.md) records the full npm audit at published baseline `abd7c9a`, seven upstream advisories and their applicability. The checked dependency commit `a3c5173d9546d017ba322b66ea8096eabdd8ba55` pins Vite 6.4.6 and resolves both viem paths to ws 8.21.0. The full installed-tree audit returned zero entries. Vite development HMR and Playwright remote WebSocket modes still carry older bundled code. Use the built loopback preview and locally launched browser for the presentation.
+
+- Locked installation, dependency resolution, TypeScript, production build and existing compiled ABI checks passed. The served files matched the earlier rehearsal build byte for byte. Chromium verified the manager rerange, swap interruption/recovery, blocked payment, revoked manager, independent principal receipt and protected refund. Seven downloads reconciled against the displayed blocks and contract reads. Reset, identity and duplicate-action checks passed.
+- The next packaging task is the evidence-backed README, judge pitch, timed demo script and submission checklist. Independent A6 review and the recorded presentation remain pending. A1/A2/A3 remain open. M6 measured equal delivery under matched management and the refund redistributes the existing budget.
+
+### M8 packaging progress, 25 November 2026
+
+Published the judge README, pitch and timed demo, inspection route, evidence questions and submission checklist in `e21e30dced5636126458b474ffa26f113e8364d5`. After the push, `git ls-remote --symref origin HEAD refs/heads/main refs/heads/development` returned that full development tip and the original bootstrap main. Anonymous Git access succeeded and the judge-facing branch URL returned HTTP 200. The presentation targets patched runtime `a3c5173d9546d017ba322b66ea8096eabdd8ba55`. The two earlier clean-checkout author rounds exercised `eb4922d6a344987f6b041933bb0ce34ac9c6902d`.
+
+- Checked the closeout figures against the receipts, including the failed 20 B claim and the actual revoked removal. The script labels the permitted rerange and the interruption as separate author runs. Its 505 spoken words at 135 words/minute plus about 46 seconds of action time give an estimated 4:30. Human rehearsal and final file timing are pending.
+- Ran `python3 -B experiments/m6/check.py`. All 21 lifecycles, 45 orders and 150 receipt rows reconciled. The dedicated interrupted workload cost 9,405,354 extra gas over the matched retainer. Equal delivery and independent exit in both managed arms limit the demonstrated difference to service-based settlement.
+- Verified package paths, heading anchors, revision ancestry, checkout pins, Bash syntax, UI action labels, receipt references, dedicated deployment and payer sums. The five M1 import hashes passed. Reviewed the staged scope and public content. This documentation pass used the existing 115-test product result and the recorded browser revalidation.
+- **Next human actions.** A second developer completes the [A6 checklist](docs/A6-REVIEWER.md) on the patched pin. A treasury and a manager assess the same deal and provide buyer-specific cost evidence for A1/A2/A3. A presenter times the narration, records and checks a video under five minutes, and supplies the uploaded link when authorized. An authorized submitter checks signed-out access to the final materials and records the actual submission confirmation. M8 and A6 remain open. Any later integration into main needs explicit authorization for a regular merge commit preserving individual history.

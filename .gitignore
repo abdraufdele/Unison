@@ -17,3 +17,15 @@ coverage/
 # Machine-local files
 .DS_Store
 Thumbs.db
+
+# Unsent validation materials and private responses
+/.local/validation/
+
+# Isolated service-clock mutation and native replay logs
+/.local/m3/
+
+# Isolated reserve mutation and native settlement evidence
+/.local/m4/
+
+# Isolated closeout mutations and native review evidence
+/.local/m5/

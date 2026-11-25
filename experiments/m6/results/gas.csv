@@ -1,0 +1,151 @@
+arm,scenario,payer,operation,second,status,gas
+common,common,treasury,deploy PoolManager,-999,1,3787277
+common,common,fixture,deploy CustodyToken,-998,1,388442
+common,common,fixture,deploy CustodyToken,-997,1,388442
+common,common,treasury,deploy ComparisonRouter,-996,1,1195081
+common,common,fixture,mint treasury,-995,1,44128
+common,common,fixture,mint trader,-994,1,44128
+common,common,trader,approve router,-993,1,44100
+common,common,fixture,mint treasury,-992,1,44128
+common,common,fixture,mint trader,-991,1,44128
+common,common,trader,approve router,-990,1,44100
+B,setup,treasury,deploy Retainer,-95,1,2170478
+B,setup,treasury,initialize pool,-18,1,51854
+B,setup,treasury,approve A,-17,1,44088
+B,setup,treasury,approve B,-16,1,44088
+B,setup,treasury,accept,-15,1,44213
+B,setup,manager,accept,-14,1,27153
+B,setup,treasury,fund,-10,1,138105
+B,setup,treasury,activate,0,1,356970
+B,interrupted,trader,outward,90,1,157347
+B,interrupted,trader,return,210,1,160685
+B,interrupted,trader,post-close,301,1,115505
+B,interrupted,treasury,remove,302,1,189473
+B,interrupted,treasury,withdraw,303,1,106830
+B,interrupted,manager,final claim,306,1,90496
+C,setup,treasury,deploy MockOpeningReferenceAdapter,-99,1,212312
+C,setup,treasury,deploy HookInstaller,-98,1,1229820
+C,setup,treasury,deploy CompensationEscrow,-97,1,793026
+C,setup,treasury,deploy ServiceHook,-96,1,1073500
+C,setup,treasury,deploy AgreementVault,-95,1,6674939
+C,setup,treasury,publish opening,-19,1,156545
+C,setup,treasury,initialize pool,-18,1,52085
+C,setup,treasury,approve A,-17,1,44088
+C,setup,treasury,approve B,-16,1,44088
+C,setup,treasury,accept,-15,1,76396
+C,setup,manager,accept,-14,1,76440
+C,setup,treasury,fund,-10,1,263072
+C,setup,treasury,activate,0,1,1268268
+C,interrupted,trader,outward,90,1,219534
+C,interrupted,trader,return,210,1,202730
+C,interrupted,trader,post-close,301,1,155379
+C,interrupted,treasury,remove,302,1,239224
+C,interrupted,treasury,withdraw,303,1,109108
+C,interrupted,treasury,refund,304,1,99967
+C,interrupted,manager,final claim,306,1,112118
+C,flat,trader,outward,90,1,191301
+C,flat,trader,return,210,1,174832
+C,flat,treasury,remove,302,1,253397
+C,flat,treasury,withdraw,303,1,109108
+C,flat,manager,final claim,306,1,112118
+C,feasible,trader,outward,90,1,219534
+C,feasible,manager,rerange,120,1,468053
+C,feasible,trader,follow-on,150,1,160035
+C,feasible,treasury,remove,302,1,239717
+C,feasible,treasury,withdraw,303,1,109108
+C,feasible,treasury,refund,304,1,99967
+C,feasible,manager,final claim,306,1,112118
+C,infeasible,trader,outward,90,1,219534
+C,infeasible,manager,rerange,120,0,476221
+C,infeasible,treasury,remove,302,1,213041
+C,infeasible,treasury,withdraw,303,1,109108
+C,infeasible,treasury,refund,304,1,99967
+C,infeasible,manager,final claim,306,1,112118
+C,delayed,trader,outward,90,1,219534
+C,delayed,trader,return,240,1,202730
+C,delayed,treasury,remove,302,1,253397
+C,delayed,treasury,withdraw,303,1,109108
+C,delayed,treasury,refund,304,1,99967
+C,delayed,manager,final claim,306,1,112118
+C,early,trader,outward,90,1,191301
+C,early,manager,interim claim,120,1,139692
+C,early,fixture,set payout fault,170,1,66762
+C,early,manager,failed claim,179,0,98040
+C,early,treasury,terminate,180,1,87696
+C,early,treasury,remove,182,1,223259
+C,early,treasury,withdraw,183,1,109078
+C,early,treasury,refund,184,1,102128
+C,early,fixture,set payout fault,185,1,29750
+C,early,manager,final claim,186,1,80180
+C,drift,trader,outward,90,1,191301
+C,drift,trader,repeat,110,1,157101
+C,drift,trader,repeat,115,1,157101
+C,drift,trader,return,210,1,174029
+C,drift,treasury,remove,302,1,253397
+C,drift,treasury,withdraw,303,1,109108
+C,drift,manager,final claim,306,1,112118
+B,flat,trader,outward,90,1,131938
+B,flat,trader,return,210,1,129769
+B,flat,treasury,remove,302,1,189473
+B,flat,treasury,withdraw,303,1,106830
+B,flat,manager,final claim,306,1,90496
+B,feasible,trader,outward,90,1,157347
+B,feasible,manager,rerange,120,1,338638
+B,feasible,trader,follow-on,150,1,114972
+B,feasible,treasury,remove,302,1,175793
+B,feasible,treasury,withdraw,303,1,106830
+B,feasible,manager,final claim,306,1,90496
+B,infeasible,trader,outward,90,1,157347
+B,infeasible,manager,rerange,120,0,371446
+B,infeasible,treasury,remove,302,1,151176
+B,infeasible,treasury,withdraw,303,1,106830
+B,infeasible,manager,final claim,306,1,90496
+B,delayed,trader,outward,90,1,157347
+B,delayed,trader,return,240,1,160685
+B,delayed,treasury,remove,302,1,189473
+B,delayed,treasury,withdraw,303,1,106830
+B,delayed,manager,final claim,306,1,90496
+B,early,trader,outward,90,1,131938
+B,early,manager,interim claim,120,1,93223
+B,early,fixture,set payout fault,170,1,66762
+B,early,manager,failed claim,179,0,70214
+B,early,treasury,terminate,180,1,47702
+B,early,treasury,remove,182,1,173517
+B,early,treasury,withdraw,183,1,106794
+B,early,treasury,refund,184,1,78461
+B,early,fixture,set payout fault,185,1,29750
+B,early,manager,final claim,186,1,64900
+B,drift,trader,outward,90,1,131938
+B,drift,trader,repeat,110,1,114838
+B,drift,trader,repeat,115,1,114838
+B,drift,trader,return,210,1,131766
+B,drift,treasury,remove,302,1,189473
+B,drift,treasury,withdraw,303,1,106830
+B,drift,manager,final claim,306,1,90496
+A,setup,treasury,deploy Passive,-95,1,917607
+A,setup,treasury,initialize pool,-18,1,51854
+A,setup,treasury,approve A,-17,1,44088
+A,setup,treasury,approve B,-16,1,44088
+A,setup,treasury,seed,0,1,316360
+A,interrupted,trader,outward,90,1,157347
+A,interrupted,trader,return,210,1,160685
+A,interrupted,trader,post-close,301,1,115505
+A,interrupted,treasury,remove and receive,302,1,185698
+A,flat,trader,outward,90,1,131938
+A,flat,trader,return,210,1,129769
+A,flat,treasury,remove and receive,302,1,185698
+A,feasible,trader,outward,90,1,157347
+A,feasible,trader,follow-on,150,1,57557
+A,feasible,treasury,remove and receive,302,1,147400
+A,infeasible,trader,outward,90,1,157347
+A,infeasible,treasury,remove and receive,302,1,147400
+A,delayed,trader,outward,90,1,157347
+A,delayed,trader,return,240,1,160685
+A,delayed,treasury,remove and receive,302,1,185698
+A,early,trader,outward,90,1,131938
+A,early,treasury,remove and receive,182,1,169778
+A,drift,trader,outward,90,1,131938
+A,drift,trader,repeat,110,1,114838
+A,drift,trader,repeat,115,1,114838
+A,drift,trader,return,210,1,131766
+A,drift,treasury,remove and receive,302,1,185698
