@@ -12,7 +12,7 @@ Start with [PLAN.md](PLAN.md). Working rules: [AGENTS.md](AGENTS.md). Optional w
 
 ## Local agreement viewer
 
-Inspect a funded agreement and its service clock, compensation rights, pool position and actual custody at a single block. The viewer runs on loopback, with explicit local fixture controls in a separate terminal. [Setup, start, stop and reset](docs/LOCAL-VIEWER.md)
+Inspect a funded agreement and its service clock, compensation rights, pool position and actual custody at a single block. The loopback page operates fixed local demo actors through a payment failure, treasury exit, refund and later manager claim. A separate fresh run demonstrates swap interruption and recovery. [Setup, start, stop and reset](docs/LOCAL-VIEWER.md)
 
 ## Next task
 
