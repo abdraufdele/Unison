@@ -322,3 +322,47 @@ section {
     max-width: 44%;
   }
 }
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+.actions button {
+  text-align: left;
+}
+.actions small {
+  display: block;
+  font-weight: 400;
+  color: #54675d;
+}
+.receipts {
+  margin-top: 20px;
+}
+.receipts details,
+.reset {
+  border-top: 1px solid var(--line);
+  padding: 10px 0;
+}
+.receipts summary,
+.reset summary {
+  cursor: pointer;
+  font-size: 0.94rem;
+}
+.receipts code,
+.reset code {
+  overflow-wrap: anywhere;
+}
+.reset {
+  margin-top: 24px;
+}
+.reset label {
+  display: block;
+  margin: 12px 0;
+}
+.reset input {
+  width: 100%;
+  padding: 8px;
+  font: inherit;
+  display: block;
+}

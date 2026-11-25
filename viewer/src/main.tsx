@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { formatUnits, zeroHash } from 'viem'
 import { deployment, snapshot, ReadIssue, type Snapshot } from './read'
+import { DemoControls } from './controls'
 import './style.css'
 
 const report =
@@ -27,9 +28,13 @@ function useAgreement() {
   const [issue, setIssue] = useState<ReadIssue>()
   const [busy, setBusy] = useState(true)
   const reading = useRef(false)
+  const queued = useRef(false)
   const key = useRef('')
   const refresh = useCallback(async () => {
-    if (reading.current) return
+    if (reading.current) {
+      queued.current = true
+      return
+    }
     reading.current = true
     setBusy(true)
     try {
@@ -56,6 +61,10 @@ function useAgreement() {
     } finally {
       reading.current = false
       setBusy(false)
+      if (queued.current) {
+        queued.current = false
+        void refresh()
+      }
     }
   }, [])
   useEffect(() => {
@@ -230,7 +239,7 @@ function App() {
             <i aria-hidden="true">∪</i>Unison
           </a>
           <span className="network">
-            Local Anvil <b>·</b> Read only
+            Local Anvil <b>·</b> Mock assets
           </span>
         </div>
       </header>
@@ -262,9 +271,14 @@ function App() {
             <p>{issue.message}</p>
           </div>
         )}
+        {data && <DemoControls key={data.m.runId} s={data} stale={!!issue} refresh={refresh} />}
         {data && <Data s={data} />}
         <aside>
           <h2>What the agreement measures</h2>
+          <p>
+            Earned pay becomes paid when the manager receives it. Unpaid earnings stay reserved through a
+            treasury refund. The treasury can withdraw principal while the manager payment route is blocked.
+          </p>
           <p>
             Service pay follows the agreed position conditions. A passive qualifying position earns, and an
             extended range can qualify outside the opening band. Profit and manager effort are separate.
@@ -274,6 +288,7 @@ function App() {
             justification remains open. <a href={report}>Read the M6 report</a>
           </p>
         </aside>
+        <div id="run-management" />
       </main>
     </>
   )

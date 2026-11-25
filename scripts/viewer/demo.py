@@ -1,11 +1,15 @@
-"""Start one foreground local fixture. Browser RPC and terminal controls are separate."""
+"""Foreground owner of one disposable Anvil, with separate read and fixed-action interfaces."""
 import json
+import queue
 import secrets
+import sys
+from http.client import HTTPConnection
 import threading
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from web3 import IPCProvider, Web3
 from artifacts import build_id, fixture
+from journey import Conflict, Journey, check
 
 HOST = "127.0.0.1"
 PORT = 18547
@@ -19,7 +23,7 @@ class Reader(BaseHTTPRequestHandler):
         pass
 
     def allowed(self):
-        return self.headers.get("Host") == f"{HOST}:{PORT}" and self.headers.get("Origin") in (None, ORIGIN)
+        return self.headers.get_all("Host") == [f"{HOST}:{PORT}"] and self.headers.get_all("Origin") in (None, [ORIGIN])
 
     def send_json(self, status, data):
         body = json.dumps(data).encode()
@@ -27,7 +31,7 @@ class Reader(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Access-Control-Allow-Origin", ORIGIN)
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Unison-CSRF")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
@@ -37,11 +41,56 @@ class Reader(BaseHTTPRequestHandler):
         self.send_json(200 if self.allowed() else 403, None)
 
     def do_GET(self):
-        if not self.allowed() or self.path != "/deployment.json":
-            return self.send_json(404, None)
-        self.send_json(200, self.server.manifest)
+        if not self.allowed():
+            return self.send_json(403, None)
+        if self.path == "/deployment.json":
+            return self.send_json(200, self.server.manifest)
+        if self.path == "/controls" and self.headers.get_all("Origin") == [ORIGIN]:
+            session = self.server.journey
+            with session.lock:
+                status = session.status()
+            return self.send_json(200, status)
+        self.send_json(404, None)
+
+    def control(self):
+        session = self.server.journey
+        if (not self.allowed() or self.headers.get_all("Origin") != [ORIGIN]
+                or self.headers.get_content_type() != "application/json"
+                or self.headers.get_all("X-Unison-CSRF") != [session.csrf]):
+            return self.send_json(403, {"message": "Control origin or run token rejected. Refresh this run."})
+        try:
+            size = int(self.headers.get("Content-Length", "0"))
+            if not 0 < size <= 1024:
+                return self.send_json(413, {"message": "Invalid action size."})
+            body = json.loads(self.rfile.read(size))
+            reset = self.path == "/controls/reset"
+            field = "confirmation" if reset else "action"
+            if not isinstance(body, dict) or set(body) != {"runId", "version", field} or not isinstance(body[field], str):
+                raise ValueError("Invalid action fields.")
+        except (ValueError, TypeError):
+            return self.send_json(400, {"message": "Expected a fixed action and the current run and version."})
+        if not session.lock.acquire(blocking=False):
+            return self.send_json(409, {"message": "Another action is in progress. Refresh its receipt."})
+        try:
+            if reset:
+                session.validate(body)
+                check(body[field] == session.manifest["runId"], "Enter the exact current run ID to reset.")
+                session.closing = True
+                self.server.events.put(("reset", session))
+                response = {"resetting": True}
+            else:
+                response = session.perform(body)
+        except (Conflict, ValueError) as exc:
+            return self.send_json(409, {"message": str(exc)})
+        except Exception:
+            return self.send_json(503, {"message": "Controller could not verify the action. Refresh the receipt history before continuing."})
+        finally:
+            session.lock.release()
+        self.send_json(200, response)
 
     def do_POST(self):
+        if self.path in ("/controls/action", "/controls/reset"):
+            return self.control()
         if not self.allowed() or self.path != "/rpc":
             return self.send_json(403, None)
         try:
@@ -95,6 +144,23 @@ def verify(server, run, deployment):
             or Web3.to_hex(run.v.functions.agreementId().call()) != deployment["runId"]):
         raise ValueError("Run identity changed. Stop this launcher and start a new owned run.")
 
+    a = deployment["addresses"]
+    vault = w.eth.contract(address=run.v.address, abi=run.v.abi, decode_tuples=True)
+    t = vault.functions.currentTerms().call()
+    b = t.bindings
+    check((t.vault, b.escrow, b.hook, b.poolManager, b.token0, b.token1, b.referenceAdapter, run.router.address)
+          == tuple(a[key] for key in ("vault", "escrow", "hook", "core", "tokenA", "tokenB", "adapter", "lens")),
+          "Product bindings changed.")
+    check(run.v.functions.termsHash().call() == run.h,
+          "Terms changed.")
+    check(t.treasury == t.treasuryRecipient == run.esc.functions.treasuryRecipient().call() == run.owner
+          and t.manager == t.managerRecipient == run.esc.functions.managerRecipient().call() == run.actors["manager"]
+          and run.hook.functions.vault().call() == run.esc.functions.vault().call() == t.vault
+          and run.esc.functions.paymentToken().call() == b.token1
+          and run.hook.functions.poolManager().call() == b.poolManager, "Actor or custody binding changed.")
+    check(all(Web3.to_hex(Web3.keccak(w.eth.get_code(addr))) == deployment["codeHashes"][key]
+              for key, addr in a.items()), "Runtime code changed.")
+
 
 def inspect(run):
     block = run.w.eth.block_number
@@ -113,45 +179,53 @@ def inspect(run):
     print(json.dumps(fields), flush=True)
 
 
-def commands(server, run, deployment):
-    stage = "funded"
-    run_id = deployment["runId"]
+def terminal_input(events):
+    for line in sys.stdin:
+        events.put(("command", line.strip()))
+    events.put(("command", "stop"))
+
+
+def commands(server, session):
+    run_id = session.manifest["runId"]
     print(f"Ready {BASE}/deployment.json\nRun {run_id}\nCommands: inspect, activate, interrupt, terminate, reset <run-id>, stop", flush=True)
     while True:
-        try:
-            command = input().strip()
-        except EOFError:
-            return False
-        if command == "stop":
-            return False
-        try:
-            verify(server, run, deployment)
-            if command == "inspect":
-                inspect(run)
-            elif command == f"reset {run_id}":
+        kind, value = server.events.get()
+        if kind == "reset":
+            if value is session:
                 return True
-            elif command == "activate" and stage == "funded":
-                run.tx("treasury", "activate", run.v.functions.activate(run.h), 2000)
-                run.rpc("evm_setNextBlockTimestamp", [2001])
-                run.rpc("evm_mine", [])
-                stage = "qualifying"
-            elif command == "interrupt" and stage == "qualifying":
-                run.tx("trader", "outward", run.router.functions.order(run.key, False, 700 * fixture.UNIT, 120), 2090)
-                stage = "interrupted"
-            elif command == "terminate" and stage in ("qualifying", "interrupted"):
-                run.tx("treasury", "terminate", run.v.functions.terminate(), 2180)
-                stage = "terminal"
-            else:
-                print(f"Unavailable at {stage}, or reset ID does not match.", flush=True)
-                continue
-            print(f"State {stage}", flush=True)
-        except ValueError as error:
-            print(str(error), flush=True)
+            continue
+        if value == "stop":
+            return False
+        if value == "inspect":
+            with session.lock:
+                session.verify()
+                inspect(session.run)
+            continue
+        # Legacy terminal shortcuts use the very same authenticated, stage-checked dispatcher.
+        body = {"runId": run_id, "version": len(session.history)}
+        path = "/controls/action"
+        if value.startswith("reset "):
+            body["confirmation"] = value[6:]
+            path = "/controls/reset"
+        elif value in ("activate", "interrupt", "terminate"):
+            body["action"] = "shortClose" if value == "terminate" and session.stage in ("activate", "interrupt") else value
+        else:
+            print("Unknown command.", flush=True)
+            continue
+        conn = HTTPConnection(HOST, PORT, timeout=20)
+        try:
+            conn.request("POST", path, json.dumps(body), {"Origin": ORIGIN, "Content-Type": "application/json",
+                                                         "X-Unison-CSRF": session.csrf})
+            result = json.load(conn.getresponse())
+            print(result.get("message", f"State {session.stage}"), flush=True)
+        finally:
+            conn.close()
 
 
 def main():
-    # Reserve the public read port before creating any chain or changing any state.
-    with HTTPServer((HOST, PORT), Reader) as server:
+    with ThreadingHTTPServer((HOST, PORT), Reader) as server:
+        server.events = queue.Queue()
+        threading.Thread(target=terminal_input, args=(server.events,), daemon=True).start()
         while True:
             with fixture.chain(viewer=True) as w:
                 run = fixture.Run(w)
@@ -160,12 +234,16 @@ def main():
                 deployment = manifest(run, marker)
                 server.manifest = deployment
                 server.reader = IPCProvider(w.provider.ipc_path, timeout=5)
-                verify(server, run, deployment)
+                session = Journey(run, deployment, lambda: verify(server, run, deployment))
+                server.journey = session
+                session.verify()
                 worker = threading.Thread(target=server.serve_forever)
                 worker.start()
                 try:
-                    restart = commands(server, run, deployment)
+                    restart = commands(server, session)
                 finally:
+                    with session.lock:
+                        session.closing = True
                     server.shutdown()
                     worker.join()
                 if not restart:
