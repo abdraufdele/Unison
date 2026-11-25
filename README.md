@@ -14,6 +14,8 @@ Start with [PLAN.md](PLAN.md). Working rules: [AGENTS.md](AGENTS.md). Optional w
 
 Inspect a funded agreement and its service clock, compensation rights, pool position and actual custody at a single block. The loopback page operates fixed local demo actors through a payment failure, treasury exit, refund and later manager claim. A separate fresh run demonstrates swap interruption and recovery. Build and download a block-pinned statement to reconcile service intervals, transfers and outstanding rights. [Setup, start, stop and reset](docs/LOCAL-VIEWER.md)
 
+For an independent fresh-checkout replay, use the [A6 developer checklist](docs/A6-REVIEWER.md). It includes the public revision, expected results and a blank reviewer record.
+
 ## Next task
 
 Evaluate whether both roles accept C1 and whether their reconciliation costs justify the measured premium. The local M6 comparison found identical delivery under matched management and different payment for interrupted service. [M6 results and cost thresholds](docs/M6-COMPARISON.md)
