@@ -1,6 +1,6 @@
 # A6 independent developer checklist
 
-**Target revision** `eb4922d6a344987f6b041933bb0ce34ac9c6902d` in the public Unison development history. Keep this checklist and its linked setup instructions open while testing that revision in your own clean checkout. Record your fresh runs and observations. A6 remains pending until a second developer supplies a dated record. [Local runbook](LOCAL-VIEWER.md) · [Author rehearsal](A6-AUTHOR-REHEARSAL.md)
+**Target revision** `a3c5173d9546d017ba322b66ea8096eabdd8ba55` in the public Unison development history. Keep this checklist and its linked setup instructions open while testing that revision in your own clean checkout. Record your fresh runs and observations. A6 remains pending until a second developer supplies a dated record. [Local runbook](LOCAL-VIEWER.md) · [Earlier author rehearsal](A6-AUTHOR-REHEARSAL.md) · [Dependency revision and revalidation](VIEWER-DEPENDENCIES.md)
 
 ## Prepare and start
 
@@ -10,7 +10,7 @@
    ```bash
    git clone --branch development --single-branch https://github.com/abdraufdele/Unison.git unison-a6
    cd unison-a6
-   git switch --detach eb4922d6a344987f6b041933bb0ce34ac9c6902d
+   git switch --detach a3c5173d9546d017ba322b66ea8096eabdd8ba55
    git rev-parse HEAD
    git status --short
    ```

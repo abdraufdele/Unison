@@ -40,7 +40,7 @@ Start the fixture in a foreground terminal and wait for its Ready message.
 python3 -Bu scripts/viewer/demo.py
 ```
 
-From a second terminal at the repository root, serve the built page. Open `http://127.0.0.1:5173/` using that exact host. For frontend development, `npm --prefix viewer run dev` uses the same address and port. Use one frontend server at a time.
+From a second terminal at the repository root, serve the built page. Open `http://127.0.0.1:5173/` using that exact host. Use the built preview for presentation and browser verification. Development mode starts a separate hot-reload WebSocket path. The [viewer dependency assessment](VIEWER-DEPENDENCIES.md) records the scope of the patch and the remaining tooling exposure.
 
 ```bash
 npm --prefix viewer run preview
