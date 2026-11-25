@@ -1,0 +1,44 @@
+# Judge evidence and hard questions
+
+| Supplied criterion | What to inspect | What the evidence supports |
+| --- | --- | --- |
+| Original Idea | [C1 terms](SERVICE-SPEC.md) and [settlement](COMPENSATION.md) | The project proposes buying time with a specified vault-owned position. Even passive delivery can earn the budget. The claim concerns this contract design. Priority and market novelty have not been established. |
+| Unique Execution | [Swap and liquidity checkpoints](SERVICE-CLOCK.md) and [three contract roles](../README.md#how-one-second-becomes-payable) | A third-party swap can change the service clock inside the swap transaction. The vault supplies the checkpoints for manager changes. A funded escrow converts their cumulative result into enforceable payment rights. Independent exit and earned reserves also worked under the retainer. |
+| Impact | [Matched outcomes](M6-COMPARISON.md#service-execution-and-settlement) and [payer costs](M6-COMPARISON.md#cost-by-payer-and-economic-hurdle) | The interrupted period paid 60 B for measured service versus 100 B for elapsed time. Lower pay redistributes the budget. The buyer still needs to identify reconciliation work or disputes worth the added cost. |
+| Functionality | [Closeout matrix](CLOSEOUT.md) and [author receipts](A6-AUTHOR-REHEARSAL.md#run-identities-and-receipts) | Local transactions exercised a permitted rerange, a revoked removal, principal withdrawal during a blocked payment, refund and later payment of the reserve. The recorded root suite passed 115 tests. Independent review is pending. |
+| Presentation | [Three-minute route](M8-DEMO.md#three-minute-judge-inspection) and [block-pinned statement](LOCAL-VIEWER.md#agreement-statement-and-json-export) | A judge can follow one invoice from qualifying seconds through actual wallet receipts. Distinct run IDs identify separate scenarios. |
+| Pitch | [One sentence, 30-second pitch and spoken demo](M8-DEMO.md) | The pitch names the purchased service and compares the result with a retainer. Script timing is estimated. Narration, recording and upload are pending. |
+
+## Why a hook?
+
+A trader can move the tick across the position edge while the manager is idle. The pool calls `afterSwap` in that transaction. The bound hook authenticates core and pool, credits the elapsed interval under the old condition and reads the actual stored tick and vault-owned liquidity for the next interval. On an add, `beforeAddLiquidity` consumes the single grant that the vault armed for that exact leg. In the seed run 120 seconds elapsed between swaps at ticks 120 and −1 without adding a qualifying second. The hook remains attached after expiry, including on later swaps. [Swap receipts](LOCAL-VIEWER.md#interrupt-and-recover-on-a-separate-run) · [Hook](../src/ServiceHook.sol)
+
+## What does the vault still have to enforce?
+
+The vault owns the position in core. It binds the pool, vault owner, ticks and salt, authenticates core plus the active unlock context, bounds the manager’s caller, amounts, price, range, time and frequency, and retires the old identity on replacement. The vault must call the clock before mutating liquidity and install confirmed core state afterward. Omitting the pre-change checkpoint broke the duration assertion in the mutation test. The vault revokes authority and handles principal exit. Escrow computes earned base units, reserves unpaid earnings and fixes both recipients. [Clock evidence](SERVICE-CLOCK.md) · [Closeout enforcement](CLOSEOUT.md#state-changing-entry-points-and-callback-review) · [Settlement](COMPENSATION.md)
+
+## Why choose this over a retainer and simple escrow?
+
+Choose the retainer if the job is manager availability. It costs less in the measured workloads, supports bounded adjustments and protects independent exit. Passive ownership sufficed on the flat path. C1 is a candidate when a buyer specifically needs either party to be able to settle payment for agreed position-time directly from pool state. An observer and programmable escrow could reproduce the schedule with accurate, timely certification. That option was modeled only. Reporting, disputes and latency remain unpriced. Choosing C1 requires both roles to accept the metric and evidence that direct settlement covers its total premium. [Alternatives and break-even](M6-COMPARISON.md)
+
+## What did the comparison actually show?
+
+M6 executed passive, retainer and Unison arms across seven matched scenarios. Both managed arms delivered identical qualifying time, fills, fees and principal. Both recovered a 50 B order passive missed. In the **full interrupted period**, each delivered 180 qualifying seconds. The retainer paid 100 B and Unison paid 60 B. In the **early termination with blocked payment**, both had already paid 40 B, preserved a 20 B earned reserve, refunded 40 B and allowed principal exit. These are different workloads. [Outcomes and order ledger](M6-COMPARISON.md#service-execution-and-settlement)
+
+## Who bears the extra costs?
+
+For **one interrupted 300-second period**, local Cancun receipts include dedicated deployment, funding and activation, outward and return swaps, one post-expiry swap, exit and settlement. There were 20 dedicated transactions for Unison and 14 for the retainer. The premium was **9,405,354 gas**. The treasury bore 9,190,339 extra gas, the manager 70,909 and traders 144,106. Each arm paid for its own deployment once. Unison’s dedicated setup used 11,964,579 gas, including its vault and OpeningQuote, hook and installer, escrow, mock adapter and setup calls. Retainer setup used 2,876,949. The premium includes differences in the mandates and opening checks as well as callback work. Shared core, router/lens, trader approvals and mock-token fixture costs are itemized separately. [Operation and payer receipts](../experiments/m6/results/gas.csv) · [Deployment boundary](M6-COMPARISON.md#cost-by-payer-and-economic-hurdle)
+
+At an **assumed** 10 gwei per gas that difference would cost 0.09405354 ETH. Review, monitoring, operator effort, capital rates, customer dispute losses and external liquidity effects still need pricing. Traffic, reuse of infrastructure and gas price change the result. Treasury bears inventory exposure as well. [Sensitivity and exclusions](M6-COMPARISON.md#cost-by-payer-and-economic-hurdle)
+
+## What does qualifying service exclude?
+
+Seconds before activation, after the effective stop, outside the installed position, or with missing, mismatched, undersized or disallowed liquidity earn zero. The position must cover the fixed opening band and contain the stored tick. An allowed extension can qualify outside that original band. An unchanged qualifying position earns without trades or active manager effort. The metric promises neither profits, continuous fair-market pricing, a guaranteed fill nor protection against manipulation. In the synthetic drift case full pay accrued even as execution diverged from the external mark. [Predicates](../src/ServiceHook.sol) · [Drift result](M6-COMPARISON.md#service-execution-and-settlement)
+
+## What can still prevent principal receipt?
+
+Treasury termination, core removal into the vault and withdrawal to the treasury are separate actions. Exit needs functioning vault, hook and PoolManager, transferable principal tokens, chain progress and inclusion of the treasury’s transactions. A global freeze of B could block principal B too. An already included manager transaction can precede revocation. Withdrawal returns the inventory and fees actually available in kind. The demo isolates an escrow-to-manager transfer failure. Principal exit requires neither a fresh opening price, manager cooperation nor a successful compensation or refund transfer. [Closeout matrix and assumptions](CLOSEOUT.md)
+
+## What has not been independently verified?
+
+The author reproduced the outcomes on a provisioned WSL2 host. A second developer still needs to verify the pinned fresh checkout and two rounds of resets. One local provider supplies receipts, logs and state. Their reconciliation establishes internal consistency within its coverage. Customer acceptance of the same terms, willingness to bear costs, security assurance and suitability for real funds all remain open. The patched lockfile’s full npm audit returned zero findings in that installed-tree check. Vite HMR and remote Playwright modes still carry older bundled ws code. The verified presentation uses built loopback preview and locally launched Chromium. The dependency result provides neither a security audit nor a guarantee. [Reviewer checklist](A6-REVIEWER.md) · [Provider limits](LOCAL-VIEWER.md#agreement-statement-and-json-export) · [Dependency assessment](VIEWER-DEPENDENCIES.md)

@@ -1,55 +1,99 @@
 # Unison
 
-**Define the job. Verify delivery. Pay what was earned.**
+A treasury hires one manager for 300 seconds in one fixed-fee Uniswap v4 pool. It puts 2,000 mock A and 2,000 mock B under bounded management and funds a separate 100 B pay budget. **A second earns pay when the vault’s one position covers the fixed opening band, meets the minimum liquidity and contains the pool’s actual stored tick.** An unattended position can earn every second.
 
-A proposed treasury-owned Uniswap v4 liquidity-service agreement. One treasury hires one manager for one position and one fixed period. A separate budget pays for agreed qualifying service; termination preserves earned obligations and supports independent principal recovery.
+The hook observes third-party swaps as they happen and admits a vault-authorized liquidity addition once. In one local closeout, **180 qualifying seconds in a 300-second period earned 60 B**. The manager had received 40 B when the next claim failed. The treasury still withdrew its assets and collected a 40 B refund. Escrow kept the remaining 20 B owed to the manager and paid it when the route reopened. Inspect the two failed receipts and the withdrawals at blocks 29–36. [Payment run](docs/LOCAL-VIEWER.md#run-the-payment-failure-journey)
 
-## Status
+**What changed in the comparison?** The matched retainer delivered the same liquidity, fills, fees and principal across seven scenarios. Both arrangements allowed independent exit. The demonstrated difference is onchain payment for seconds of agreed service. Its value to a particular buyer remains open. [Matched results and costs](docs/M6-COMPARISON.md)
 
-The narrow experimental MVP is local-only. The repository includes the verified source of the bounded M1 compatibility/accounting experiment. The original Windows experiment has been reproduced on native WSL. The local C1 vault records two-party acceptance, funds principal and compensation atomically, and supports cancellation before activation. The treasury can recover idle pair assets independently of the escrow refund. The treasury can now activate the agreement against the pinned v4 pool, seed a vault-owned position, and recover idle tokens, remaining liquidity and LP fees after termination or expiry. Activation reruns the opening and seed preflight. The named manager can add, remove, reopen, or atomically rerange one vault-owned position within C1 limits. The hook admits each authorized add leg once. Termination and exact expiry revoke management. The service clock tracks cumulative qualifying seconds against the actual core position and clips at termination or scheduled end. Anyone can trigger a fixed-manager claim for cumulative earned service or a fixed-treasury refund of the final unearned balance. Unpaid earnings stay reserved. Customer acceptance and economic advantage still require evidence.
+[Three-minute judge route and timed pitch](docs/M8-DEMO.md) · [Judge evidence and questions](docs/M8-JUDGE.md) · [Submission checklist](docs/M8-SUBMISSION.md)
 
-Start with [PLAN.md](PLAN.md). Working rules: [AGENTS.md](AGENTS.md). Optional workflow: [docs/BUILDING.md](docs/BUILDING.md). Actual experimental result and limits: [docs/M1-STATUS.md](docs/M1-STATUS.md).
+## How one second becomes payable
 
-## Local agreement viewer
+Both parties accept the same terms hash before funding. At activation a fresh opening observation fixes the band for the whole period, [−120, 120) at parity. The permitted position must cover that band and hold at least 100,000,000,000 raw liquidity units. Compare the stored tick to the **position** edges, lower inclusive and upper exclusive. Tick 120 stops the seed earning. After a permitted extension to [−180, 180), the same tick qualifies. [Rules](src/ServiceRange.sol) · [Separate extension run](docs/LOCAL-VIEWER.md#permitted-manager-rerange-on-a-fresh-run)
 
-Inspect a funded agreement and its service clock, compensation rights, pool position and actual custody at a single block. The loopback page operates fixed local demo actors through a payment failure, treasury exit, refund and later manager claim. A separate fresh run demonstrates swap interruption and recovery. Build and download a block-pinned statement to reconcile service intervals, transfers and outstanding rights. [Setup, start, stop and reset](docs/LOCAL-VIEWER.md)
+| Component | Responsibility |
+| --- | --- |
+| ServiceHook | Authenticates PoolManager and pool. Before an add it checks the vault sender and consumes the exact grant. After a swap it credits elapsed time under the old condition, then reads core tick and liquidity for the installed position. The clock clips time at termination or scheduled end. [Hook](src/ServiceHook.sol) |
+| AgreementVault | Owns the core position for the treasury. Binds pool, owner, ticks and salt. Checks caller, terms, inventory, range, price, amount, time and cooldown bounds. The vault must checkpoint **before** changing liquidity and install the confirmed position afterward. It revokes manager authority at termination or expiry. Treasury can remove liquidity, collect fees and withdraw idle assets in kind. [Vault](src/AgreementVault.sol) · [Closeout tests](docs/CLOSEOUT.md) |
+| CompensationEscrow | Holds the funded budget separately. Earned base units equal `floor(funded budget × cumulative qualifying seconds / original duration)`. A claim pays earned less already paid to the fixed manager recipient. After close, the fixed treasury recipient can pull only the unearned budget less prior refunds. A failed transfer preserves the right to retry. [Escrow](src/CompensationEscrow.sol) |
+| Local viewer | Reads terms, core position, time and balances at one block. A statement reconciles intervals and transfers to contract reads and labels the projected tail since the last checkpoint. Its fixed local actors submit transactions and display receipts. [Viewer and JSON export](docs/LOCAL-VIEWER.md#agreement-statement-and-json-export) |
 
-For an independent fresh-checkout replay, use the [A6 developer checklist](docs/A6-REVIEWER.md). It includes the public revision, expected results and a blank reviewer record.
+## Evidence and limits
 
-## Next task
-
-Evaluate whether both roles accept C1 and whether their reconciliation costs justify the measured premium. The local M6 comparison found identical delivery under matched management and different payment for interrupted service. [M6 results and cost thresholds](docs/M6-COMPARISON.md)
-
-## Scope and limits
-
-Fixed-band liquidity-time measures a contractual position condition, not profit, manager effort, guaranteed trade depth or continuous fair market value. Qualifying passive liquidity earns payment. Exit assumes functioning contracts/core/chain and transferable principal assets.
+- **Measured cost.** In M6’s interrupted 300-second period with an outward swap, a return and a post-expiry swap, Unison used **9,405,354 more gas** than the bounded retainer. That includes one dedicated deployment per arm and its lifecycle transactions. Shared infrastructure and fixture costs are itemized separately. Treasury bore 9,190,339 extra gas, manager 70,909 and traders 144,106. The 40 B refund redistributes the existing budget. [Payer ledger and workload](docs/M6-COMPARISON.md#cost-by-payer-and-economic-hurdle)
+- **Local engineering.** The recorded root suite passed 115 tests. Two author rounds on a provisioned WSL2 host reproduced three paths each. Chromium rechecked the patched viewer. Independent reproduction, customer acceptance, buyer economics and a narrated video remain pending. The latest implementation is on [development](https://github.com/abdraufdele/Unison/tree/development). The default branch is still the bootstrap. [Author receipts](docs/A6-AUTHOR-REHEARSAL.md) · [Dependency assessment](docs/VIEWER-DEPENDENCIES.md) · [Independent checklist](docs/A6-REVIEWER.md)
+- **Limits.** The treasury bears market and inventory risk. The clock measures the agreed position condition. It can pay through external price drift and says nothing about profit, effort or guaranteed execution. Exit needs working vault, hook and core contracts, transferable principal tokens, chain progress and inclusion. The demo blocks one escrow-to-manager route. A global token freeze could block principal too. Only local mock assets and a mock opening source were exercised. [Service specification](docs/SERVICE-SPEC.md) · [Closeout assumptions](docs/CLOSEOUT.md)
 
 ## Setup
 
-The root contracts and Forge fixtures use native Forge 1.8.7 (`985eeea031d79922cd654d4e94e6c3701e1c7d73`) and Linux solc 0.8.26+commit.8a97fa7a. The root preflight tests instantiate the real v4 PoolManager. On a fresh clone, obtain the pinned v4-core checkout and its Solmate submodule using the [M1 setup](experiments/m1/REPLAY.md#tools-and-inputs). Python 3 runs the independent grid check using its standard library. Use the cached native compiler at the path below and the checked-in default Foundry profile (Cancun, via IR, optimizer 200). From the repository root run
+Use a fresh directory on a provisioned Linux x86-64 host. The rehearsed toolchain used WSL2 Ubuntu 24.04.3, Forge/Anvil 1.8.7 at `985eeea031d79922cd654d4e94e6c3701e1c7d73`, native solc 0.8.26, Python 3.12.3 with Web3.py 7.13.0, Node 22.19.0 and npm 11.21.3. This checkout pins the viewer revision revalidated after the dependency update. Keep the judge documents open on development. [Tool prerequisites and setup deviations](docs/A6-AUTHOR-REHEARSAL.md#setup-and-deviations)
 
 ```bash
-forge --version
-~/.svm/0.8.26/solc-0.8.26 --version
-sha256sum ~/.svm/0.8.26/solc-0.8.26
-test "$(git -C experiments/m1/vendor/v4-core rev-parse HEAD)" = e50237c43811bd9b526eff40f26772152a42daba
-test -z "$(git -C experiments/m1/vendor/v4-core status --porcelain)"
-test "$(git -C experiments/m1/vendor/v4-core/lib/solmate rev-parse HEAD)" = 4b47a19038b798b4a33d9749d25e570443520647
-test -z "$(git -C experiments/m1/vendor/v4-core/lib/solmate status --porcelain)"
-python3 scripts/check_opening_grid.py
-forge fmt --check src test
-forge test --offline --use ~/.svm/0.8.26/solc-0.8.26 -vv
-(cd experiments/m1 && sha256sum -c SHA256SUMS)
+git clone --branch development --single-branch https://github.com/abdraufdele/Unison.git unison-judge
+cd unison-judge
+git switch --detach a3c5173d9546d017ba322b66ea8096eabdd8ba55
 ```
 
-The expected native compiler SHA-256 is `d5f23436f443edb85d8e76906d12f0a86ce0490e7663a9e608efeb7a93f149ef`. The isolated M1 suites have their own dependencies and replay commands. [Pinned M1 replay procedure](experiments/m1/REPLAY.md) and [WSL replay result](experiments/m1/WSL-RESULT.md).
+From that root, fetch the pinned source into the unused vendor directory. The subshell stops at the first failed check. The Foundry profile selects Cancun, via IR and optimizer 200.
 
-The [M5 closeout matrix](docs/CLOSEOUT.md) maps the terminal rights and callback checks to executed tests, including the stateful balance reconciliation and mutation results. The [M4 settlement report](docs/COMPENSATION.md) records payout interfaces, exact base-unit transfers, failure recovery and reserve-mutation replay. The [service-clock evidence](docs/SERVICE-CLOCK.md) covers third-party swap intervals, stateful reconciliation, terminal freezing and the ordering mutation. The [manager-operations evidence](docs/MANAGER-OPERATIONS.md) covers operation bounds, the opening-quote helper, atomic rollback, and independently reconciled principal and LP fees. The [activation and principal recovery report](docs/ACTIVATION-RECOVERY.md) covers the product hook, real vault-owned position, independent exit and the M2 custody boundary. The [activation preflight report](docs/ACTIVATION-PREFLIGHT.md) records the core reads, seed deltas and limits of the fixture. The [opening-reference implementation note](docs/OPENING-REFERENCE.md) gives the input bounds, rounding proof, mock trust assumptions, upstream credits and how to use the result at activation.
+```bash
+(
+  set -eu
+  cd experiments/m1
+  sha256sum -c SHA256SUMS
+  git init -q vendor/v4-core
+  git -C vendor/v4-core remote add origin https://github.com/Uniswap/v4-core.git
+  git -C vendor/v4-core fetch --depth 1 origin e50237c43811bd9b526eff40f26772152a42daba
+  git -C vendor/v4-core checkout --detach FETCH_HEAD
+  test "$(git -C vendor/v4-core rev-parse HEAD)" = e50237c43811bd9b526eff40f26772152a42daba
+  test "$(git -C vendor/v4-core rev-parse HEAD:lib/solmate)" = 4b47a19038b798b4a33d9749d25e570443520647
+  git -C vendor/v4-core submodule update --init --depth 1 -- lib/solmate
+  test "$(git -C vendor/v4-core/lib/solmate rev-parse HEAD)" = 4b47a19038b798b4a33d9749d25e570443520647
+  test -z "$(git -C vendor/v4-core status --porcelain)"
+  test -z "$(git -C vendor/v4-core/lib/solmate status --porcelain)"
+)
+```
 
-## Local custody fixture
+### Tests and viewer build
 
-The treasury creates a draft vault, deploys the escrow with that vault, token B and both fixed recipients, then revises the draft to bind the escrow. Both parties accept the resulting hash. A temporary draft address has no funding authority. At funding the vault checks the escrow's compiled runtime hash, all four bindings, and zero prior credits and refunds. The escrow constructor sets its bindings once. This setup uses the existing draft revision path and needs no factory. [Custody fixture](test/fixtures/CustodyFixture.sol)
+Run from the checkout root using the native compiler at the indicated path. The M6 checker reads the published CSVs offline.
 
-The treasury approves the vault for 2,000,000,000 A units and 2,100,000,000 B units. Before the original cutoff, one call to `fund(hash)` sends 2,000,000,000 units of each token to the vault and 100,000,000 B units directly to escrow. Funding verifies both token decimals, each debit and receipt, and the final balances. C1 assumes truthful balance reporting and ordinary transferable, non-rebasing local tokens. [Funding tests](test/AgreementVaultFunding.t.sol)
+```bash
+(
+  set -eu
+  export FOUNDRY_PROFILE=default
+  forge --version | grep -F 985eeea031d79922cd654d4e94e6c3701e1c7d73
+  anvil --version | grep -F 985eeea031d79922cd654d4e94e6c3701e1c7d73
+  c1_solc=~/.svm/0.8.26/solc-0.8.26
+  printf '%s  %s\n' d5f23436f443edb85d8e76906d12f0a86ce0490e7663a9e608efeb7a93f149ef "$c1_solc" | sha256sum -c -
+  python3 scripts/check_opening_grid.py
+  forge fmt --check src test
+  forge test --offline --use "$c1_solc" -vv
+  python3 -B experiments/m6/check.py
+  forge build --offline --use "$c1_solc" experiments/m6/Comparison.sol test/fixtures/CustodyFixture.sol test/fixtures/MockOpeningReferenceAdapter.sol experiments/m1/vendor/v4-core/src/PoolManager.sol
+  python3 -B scripts/viewer/artifacts.py --check
+  npm --prefix viewer ci
+  npm --prefix viewer run build
+)
+```
 
-The treasury can cancel Draft, Accepted or Funded. Anyone can cancel from the cutoff onward. Cancellation moves no tokens. After cancellation, the treasury calls `withdrawIdle()` for the current pair, including gifts. Anyone can call `refund()` to return the credited budget to the treasury. Direct escrow gifts stay in escrow. A failed pull can be retried, and an empty pull pays zero. [Cancellation and recovery tests](test/AgreementVaultCancellation.t.sol)
+### Run the interactive demo
+
+In terminal one at the checkout root, start the local chain and wait for **Ready**.
+
+```bash
+python3 -Bu scripts/viewer/demo.py
+```
+
+In terminal two at the same root, serve the built page.
+
+```bash
+npm --prefix viewer run preview
+```
+
+Open `http://127.0.0.1:5173/`, check the funded run ID and select **Use this demo run**. Follow the payment path in the timed script. In the launcher prompt, `reset <full-current-run-id>` replaces that disposable fixture. Copy its actual ID, then confirm a new funded ID before choosing a different path. Enter `stop` in the launcher and press Ctrl-C in the preview terminal to finish. The runbook includes the pinned local Chromium install and automated browser commands. [Viewer controls and replay](docs/LOCAL-VIEWER.md) · [Timed demo](docs/M8-DEMO.md)
+
+## Reuse and licenses
+
+Unison’s C1 vault, service accounting, escrow and viewer build on the project’s preserved M1 direct-core experiment. M1 obtained unmodified upstream dependencies from the Essentials checkout. No Essentials hook implementation was imported. Uniswap v4-core supplies PoolManager (BUSL-1.1) and libraries including StateLibrary and FullMath (MIT). Solmate supplies Owned (AGPL-3.0-only). Preserve file-specific notices. The frontend uses React, React DOM, viem and Vite (MIT), TypeScript and Playwright Core (Apache-2.0), plus separately licensed transitive packages. [M1 provenance and license texts](experiments/m1/README.md#attribution-and-license-scope) · [Opening math credits](docs/OPENING-REFERENCE.md) · [Viewer dependencies](viewer/package-lock.json)
