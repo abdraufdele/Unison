@@ -80,9 +80,39 @@ At the bottom of the page expand **Disposable run management**, enter the full I
 | 26 | At +210 s the trader offered 700 A toward tick 0. Actual tick −1 qualified again. Q remained 90. | `0x102dea496774c5f0cafba14cdd44ebeef1ad02da79f37372327b6267e8acd1cb` |
 | 27 | Treasury terminated at +240 s with Q=120. Independent IPC inspection found 40 B earned and reserved, 60 B refundable, and 100 B in escrow. | `0x6a1945f83bf29900d7ce6f48ae3714612e5565633c63ff14153932b1a68f2b49` |
 
+### Permitted manager rerange on a fresh run
+
+Use an accepted, funded run from the updated launcher. Select **Use this demo run**, activate, then select **Manager journey: checkpoint the seed after 30 s**. Follow the manager, trader and treasury actions below. After withdrawal select **Build statement** and **Download JSON**. To exercise the path while keeping another deployment running, serve the built frontend as above and run the following command.
+
+```bash
+timeout 120s python3 -Bu scripts/viewer/check_statement.py manager
+```
+
+This command creates a fresh disposable chain, verifies its funded anchor and contracts, drives the actual page in Chromium and closes only its test fixture. Set `CHROMIUM_PATH` to an installed compatible Chromium if needed. The existing payment and interruption paths are separate choices after activation. [Browser journey](../viewer/check-manager.mjs) · [Core and custody checks](../scripts/viewer/check_manager.py)
+
+The manager requests exactly 100,000,000,000 L at [−180, 180). Its width is 360 ticks, both edges align to spacing 60, and each extends the opening band by 60 ticks. C1 allows width 480 and extension 120. Execution requires a stored tick in [0, 1), an inclusive window of [2030, 2040] s, a maximum add input of 900 A and 900 B, and minimum removal principal of 598 A and 598 B. The controller checks the old ID, reads both candidate core keys and simulates the complete call from the named manager against actual parity inventory. It then submits the same calldata at 2031. No token, time, actor or range can be selected in the browser.
+
+The verified run ID was `0x7416c778cee864418d1141605914ffcc16058ad6241bbfdf13a73f80a307f8f9`. The pool was `0xfa42b6fad8a05b808efa84076e1a2bb57fb52c889451eaed5c34c84100143ac7`, the core `0xeA65a3402Cb39E04Da646933985B1c9670d0e23c`, the vault `0xEE1Ec117328B89cB4ba89E5CA28C7Ef30A9b0D15`, and the manager `0x27b5fa6358b7bfa95D5eD5900b71fB2c0C120E7f`. The mined calldata bound terms hash `0x23628b6ca79fdf9a27d29082238ddd56df65bed2962af104ee8e463926023ebc` and the vault seed ID `0x77ee59b1b9a818bb00e2a2e2509a895707880844bb62905bba88c7c3290aa9a8`. The new ID was `0x8fe15812f7e8549f69e645608e08433732fe8f7059cecca65f548e7d72e2e8f6`. Each ID binds the pool, vault owner, ticks and salt.
+
+| Block | Time | Actor and observed result | Local transaction hash |
+| ---: | ---: | --- | --- |
+| 23 | 2000 | Treasury activated the parity seed, salt 1, [−120, 120). | `0x1fdfc1daaadcb4156ceeedd9d6db6270c3ce352068a3c25c4e62c2a6741d06f7` |
+| 25 | 2030 | Treasury checkpointed Q=30. The idle vault held 1,401.826223 of each token. | `0xc5704a15af016bd0728b534fa79405a3b6680e887cd45d7f81b413cf76bc7653` |
+| 26 | 2031 | Manager atomically retired salt 1 and installed salt 2. Q=31 and lastAdjustment=2031. | `0x79b5055eee91042c28237550b543363359eaf5c5aa29f84948f2625bd625af0f` |
+| 27 | 2090 | Trader offered 700 B for A to tick 120. The fill used 603.584180 B for 598.173776 A, leaving 96.415820 B unspent. Stored tick 120 qualified. Q=90. | `0x11021c16c1678abff86c5728e33a12ad5493b1462b2a007b7e120c28c5dc50f2` |
+| 28 | 2180 | Treasury terminated at Q=180. Escrow held 100 B. | `0xc3e1b98b9d3501772a45efc6e15ca1c054753330d0cb07356cc6c07337204d0b` |
+| 29 | 2182 | Treasury removed all vault liquidity and collected LP fees. | `0xdfd20568e498032ab1ef86dc35563ff1c90416db9d02eb0bc3fadb90f4af2548` |
+| 30 | 2183 | Treasury withdrew both idle balances. The vault held zero A and zero B. | `0x186a834870edce478c68cea60a96a713f72c5aea1b0f9be806190f4d2554ad70` |
+
+The removal returned 598.173776 A and 598.173776 B. The replacement consumed 895.917529 A and 895.917529 B. Both legs had zero fees, leaving 1,104.082470 of each asset idle. The test independently calculated rounded principal from the two boundary prices and read both core keys before and after. Vault-owned L moved from 100,000,000,000 to zero on salt 1 and from zero to 100,000,000,000 on salt 2. All four core liquidity changes in this pool were counted in log order from funding through exit. At most one vault identity held liquidity. After the adjustment the next eligible time was 2061. An otherwise-valid read-only removal simulation at 2031 returned `AdjustmentCooldown()`. A fresh valid window succeeded in simulation at 2090.
+
+Tick 120 is outside the half-open opening band and inside the installed position. The extension still covers the entire agreed band. Under C1 this position continued earning. The downloaded statement covered blocks 15–30 and 19 product events, including both rerange legs and their salts. Persisted qualifying intervals were 30, 1, 59 and 90 seconds. The two checkpoints in the rerange transaction both recorded Q=31. The final 180 s over the original 300 s earned 60 B. The reserve and claimable amount were 60 B, the treasury could refund 40 B, and neither party had pulled compensation.
+
+At exit the vault received 297.743752 A and 1,497.690955 B principal, plus 1.810752 B in LP fees. Including idle assets the treasury actually received 1,401.826222 A and 2,603.584177 B. Escrow held its original 100 B throughout. The browser, statement, token balances, core fee growth and mined receipts agreed. The browser showed pending, mined and stale-position error states. Wrong run, stage, Host, Origin, CSRF token and extra fields were rejected. Two concurrent identical rerange requests produced one successful receipt. Page load and download left the head unchanged. This author replay measures C1 service delivery. The matched-retainer results and buyer-specific economic questions remain as recorded in M6.
+
 ### Control boundary and browser replay
 
-The four read RPC methods are `eth_chainId`, `eth_call`, `eth_getCode` and `eth_getBlockByNumber`. The separate action endpoint accepts only the current run ID, stage version and an allowlisted action name. Each action fixes the actor, contract, calldata and timestamp inside the launcher. The reset endpoint accepts only the run, version and exact typed ID. Both require the literal loopback Host, exact frontend Origin, JSON and the per-run anti-CSRF header. A nonblocking lock serializes writes. Under that lock the controller checks the funded anchor, agreement marker, chain, current head, lifecycle, roles, terms and runtime bindings over owned IPC. Receipt reconciliation precedes the next step. An uncertain submission blocks retries. The pinned Anvil also listens on an ephemeral loopback port with CORS disabled. The application uses the restricted gateway and assumes a trusted local machine. [Controller](../scripts/viewer/journey.py)
+The four read RPC methods are `eth_chainId`, `eth_call`, `eth_getCode` and `eth_getBlockByNumber`. The separate action endpoint accepts the current run ID, stage version and an allowlisted action name. The rerange action also requires the seed position ID displayed in the current snapshot. This field is an identity check. The controller computes the authorized target and calldata independently. Each action fixes the actor, contract, calldata and timestamp inside the launcher. The reset endpoint accepts only the run, version and exact typed ID. Both require the literal loopback Host, exact frontend Origin, JSON and the per-run anti-CSRF header. A nonblocking lock serializes writes. Under that lock the controller checks the funded anchor, agreement marker, chain, current head, lifecycle, roles, terms and runtime bindings over owned IPC. Receipt reconciliation precedes the next step. An uncertain submission blocks retries. The pinned Anvil also listens on an ephemeral loopback port with CORS disabled. The application uses the restricted gateway and assumes a trusted local machine. [Controller](../scripts/viewer/journey.py)
 
 With the built frontend and a fresh funded fixture running, use the installed Playwright browser or set `CHROMIUM_PATH` to your installed compatible Chromium. Use the following commands in the same verification shell.
 
@@ -116,7 +146,7 @@ Build the page and run its loopback preview as above. The check reuses the pinne
 ```bash
 python3 -B scripts/viewer/artifacts.py --check
 npm --prefix viewer run build
-timeout 240s python3 -Bu scripts/viewer/check_statement.py
+timeout 240s python3 -Bu scripts/viewer/check_statement.py payment swap expiry
 ```
 
 The test creates owned, isolated fixtures. It routes the browser's normal gateway origin to a test loopback listener running the actual reader, so an existing demo can stay at its current block. For expiry only, the test explicitly mines an empty observation block at 2307 seconds on its own chain. No browser time control is added. To keep downloaded files, set `STATEMENT_DOWNLOAD_DIR` to an existing directory outside the repository. [Fixture driver](../scripts/viewer/check_statement.py) · [Browser assertions](../viewer/check-statement.mjs)
@@ -169,4 +199,4 @@ The funded vault held 2,000 A and 2,000 B. After seeding it held 1,401.826223 of
 
 React, React DOM, viem, Vite and the React type packages declare MIT licenses. TypeScript and Playwright Core declare Apache-2.0. The lockfile also includes transitive ISC and BSD-3-Clause packages. Dependency packages carry their license texts. Product, fixture and upstream Solidity retain their existing notices. [Dependency lock](../viewer/package-lock.json) · [Upstream attribution](../experiments/m1/README.md#attribution-and-license-scope)
 
-Next demonstrate a permitted bounded manager action and its effect on service. A6 still needs an independent fresh setup and rehearsal of the full demonstration. The local receipt list lives only for its run. The M6 matched retainer delivered identical tested liquidity. Customer acceptance and economic justification remain open.
+The permitted manager path has an author browser replay. A6 still needs another developer to reproduce the pinned setup and rehearse the full demonstration across fresh runs. The local receipt list lives only for its run. The M6 matched retainer delivered identical tested liquidity. Customer acceptance and economic justification remain open.
