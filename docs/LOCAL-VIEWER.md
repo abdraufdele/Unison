@@ -4,6 +4,26 @@ The viewer reads a single mock C1 agreement at one mined block. It opens in the 
 
 ## Start, inspect and stop
 
+On a bandwidth-limited fresh checkout, the full upstream v4-core history can exceed a bounded fetch. The following alternative fetches the same core commit and the Solmate gitlink from upstream. Run this **before** the Forge build, from the Unison root with an unused vendor destination. The subshell returns to the Unison root for the viewer commands.
+
+```bash
+(
+  set -eu
+  cd experiments/m1
+  sha256sum -c SHA256SUMS
+  git init -q vendor/v4-core
+  git -C vendor/v4-core remote add origin https://github.com/Uniswap/v4-core.git
+  git -C vendor/v4-core fetch --depth 1 origin e50237c43811bd9b526eff40f26772152a42daba
+  git -C vendor/v4-core checkout --detach FETCH_HEAD
+  test "$(git -C vendor/v4-core rev-parse HEAD)" = e50237c43811bd9b526eff40f26772152a42daba
+  test "$(git -C vendor/v4-core rev-parse HEAD:lib/solmate)" = 4b47a19038b798b4a33d9749d25e570443520647
+  git -C vendor/v4-core submodule update --init --depth 1 -- lib/solmate
+  test "$(git -C vendor/v4-core/lib/solmate rev-parse HEAD)" = 4b47a19038b798b4a33d9749d25e570443520647
+  test -z "$(git -C vendor/v4-core status --porcelain)"
+  test -z "$(git -C vendor/v4-core/lib/solmate status --porcelain)"
+)
+```
+
 Use the [pinned root setup](../README.md#setup), the pinned core checkout and the existing M6 Python environment (Python 3.12, Web3.py 7.13.0). The checked tools were Anvil/Forge 1.8.7, Node 22.19.0 and npm 11.21.3. From the repository root, use the first command when the Forge artifacts are missing or their source inputs changed.
 
 ```bash
@@ -169,7 +189,7 @@ The provider supplies logs, receipts, block headers and historical state. Cross-
 
 ## Read-only verification
 
-The real browser check uses Playwright Core 1.55.1. Supply an installed compatible Chromium through `CHROMIUM_PATH`, or prepare Playwright's local browser with `viewer/node_modules/.bin/playwright-core install chromium --only-shell`. The checks below assume the fixture and frontend are running. Each browser invocation reads the current state. Issue the indicated commands in the separate fixture terminal.
+The real browser check uses Playwright Core 1.55.1. Supply an installed compatible Chromium through `CHROMIUM_PATH`, or prepare Playwright's local browser with `viewer/node_modules/.bin/playwright-core install chromium --only-shell`. A slow download can be resumed from the same [Microsoft-hosted build 1193 archive](https://playwright.download.prss.microsoft.com/dbazure/download/playwright/builds/chromium/1193/chromium-headless-shell-linux.zip). On Linux x86-64 the rehearsed archive was 109,413,936 bytes with SHA-256 `7d93c385edba3ac9f10f13037e600353f29f84691f09d26b935bfc117bbceb98`. Verify the digest, extract outside the repository and set `CHROMIUM_PATH` to the extracted `chrome-linux/headless_shell` executable. The checks below assume the fixture and frontend are running. Each browser invocation reads the current state. Issue the indicated commands in the separate fixture terminal.
 
 ```bash
 node viewer/check-browser.mjs funded
