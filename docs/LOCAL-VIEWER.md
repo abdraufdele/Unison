@@ -99,6 +99,44 @@ The journey checker drives the actual page, compares each transaction hash, bloc
 
 During development, a browser assertion read the old manifest immediately after pressing reset. The old and newly fetched IDs were equal and the process exited 1 after the successful zero-value retries. The checker now waits up to 45 seconds for a different verified ID to render on the page, confirms the old controls have cleared, then verifies the new manifest and rejects the old credentials. A full replay exited 0. On subsequent failures, stderr includes the action, observed run, head, last receipt and available page/transport errors. An intentional stale-ID invocation exercised that diagnostic at block 27 before any action.
 
+## Agreement statement and JSON export
+
+In **Agreement statement**, select **Build statement**. The section shows the coverage, accepted revision, opening observation and band, service intervals, settlement, token movements and known demo failures. Expand **Ordered product events** for arguments and transaction references. **Download JSON** saves the reconciled statement for the displayed block. A new block or run clears the previous report. A stale snapshot disables download. Building and downloading are read-only. Launchers started before this feature need the updated launcher for the statement route.
+
+The gateway accepts a single evidence request, `GET /statement/<run-id>/<decimal-block>/<block-hash>`. It reads only its verified deployment over owned IPC. The browser's four-method RPC and fixed action allowlist retain their original scope. The collector locates the vault's first code block at or before the funded anchor, verifies the creation receipt and checks block ancestry through the requested hash. It queries the vault, escrow and hook in eight-block windows and compares the ordered results, including topics and data, with receipts from every transaction in those blocks. Limits are 128 blocks, eight transactions per block and 1,024 product events. An unsupported range fails explicitly. [Collector](../scripts/viewer/statement.py)
+
+The export schema is `unison.c1.statement.v1`. It includes the run marker, chain, endpoint, build, terms and hash, all contract addresses, token decimals, block hashes and timestamps, ordered decoded events, signed vault movements, fixed-recipient transfers, as-of custody, obligations and same-block contract reads. Integer quantities and indices are decimal strings. Each interval identifies its originating checkpoint and, if persisted, its ending checkpoint. The collector credits elapsed seconds using the *previous* qualification and checks the cumulative total emitted by the hook. It labels any uncheckpointed tail projected and clips it at the effective stop. Entitlement uses the original duration and a single cumulative floor.
+
+The mock tokens emit no ERC-20 transfer logs. For a financial event the collector checks both sides against historical balance changes in its single-transaction block. An ambiguous multi-transaction transfer block fails reconciliation. Core principal and LP fees enter the vault first. The treasury withdrawal includes idle inventory and those proceeds. Adding the two receipts would count the same assets twice. Known failed demo calls appear separately with their status-zero receipt, hash, and journal-sourced revert data. Zero-value retries can succeed without emitting a product event.
+
+### Checked browser downloads
+
+Build the page and run its loopback preview as above. The check reuses the pinned artifacts and installed Chromium. Set `CHROMIUM_PATH` if the browser is outside Playwright's default location. From the repository root run
+
+```bash
+python3 -B scripts/viewer/artifacts.py --check
+npm --prefix viewer run build
+timeout 240s python3 -Bu scripts/viewer/check_statement.py
+```
+
+The test creates owned, isolated fixtures. It routes the browser's normal gateway origin to a test loopback listener running the actual reader, so an existing demo can stay at its current block. For expiry only, the test explicitly mines an empty observation block at 2307 seconds on its own chain. No browser time control is added. To keep downloaded files, set `STATEMENT_DOWNLOAD_DIR` to an existing directory outside the repository. [Fixture driver](../scripts/viewer/check_statement.py) · [Browser assertions](../viewer/check-statement.mjs)
+
+| Downloaded state | Range / product events | Persisted / projected Q | Earned / paid / reserved | Refunded / refundable |
+| --- | --- | ---: | ---: | ---: |
+| Funded | 15–22 / 5 | 0 / 0 | 0 / 0 / 0 B | 0 / 0 B |
+| Active at +1 s | 15–24 / 8 | 0 / 1 | 0.333333 / 0 / 0.333333 B | 0 / 0 B |
+| Terminated with payment blocked | 15–30 / 14 | 180 / 180 | 60 / 40 / 20 B | 0 / 40 B |
+| Treasury refunded | 15–34 / 18 | 180 / 180 | 60 / 40 / 20 B | 40 / 0 B |
+| Manager paid after restoration | 15–38 / 19 | 180 / 180 | 60 / 60 / 0 B | 40 / 0 B |
+| Interrupted then recovered | 15–27 / 12 | 120 / 120 | 40 / 0 / 40 B | 0 / 60 B |
+| Effective expiry without finalization | 15–25 / 8 | 0 / 300 | 100 / 0 / 100 B | 0 / 0 B |
+
+Both acceptances and escrow credit were present before or at funded block 22. The final closeout download separated 698.218788 A and 498.228754 B in removed principal, plus 0.301038 A in LP fees, from actual treasury withdrawals of 2,100.346049 A and 1,900.054977 B. It reported both known mined failures. The interrupted position earned 90 s, spent 120 s outside range, then earned another 30 s. The unfinalized expiry export capped the open interval at 2300 and showed no close event.
+
+Each download matched the displayed block and independent viem reads of Q, escrow rights and the actual escrow token balance. The tests rejected missing, duplicate and unordered logs, stale run identity, unknown schema/build, altered earnings and transport failure. Building and saving left the chain head unchanged. A further read-only browser download from the earlier swap run `0x8915e6311994f8eac80556561ce392859a164c9977f23bf99e866267e7255b7c` agreed at block 27, hash `0xf22c6de0c4dd85831e3855adb5d7f811ca15b16f853036a37a75f962185c439a`.
+
+The provider supplies logs, receipts, block headers and historical state. Cross-checks detect inconsistent responses and many omissions. They cannot establish completeness against a provider that consistently withholds evidence. Checkpoints emit qualification, tick and liquidity, but omit the full historical reason bitmask. Failure coverage extends only to the available demo journal. Service pay measures agreed position conditions. M6 found matching liquidity delivery under the bounded retainer, and buyer-specific economic justification remains open.
+
 ## Read-only verification
 
 The real browser check uses Playwright Core 1.55.1. Supply an installed compatible Chromium through `CHROMIUM_PATH`, or prepare Playwright's local browser with `viewer/node_modules/.bin/playwright-core install chromium --only-shell`. The checks below assume the fixture and frontend are running. Each browser invocation reads the current state. Issue the indicated commands in the separate fixture terminal.
@@ -131,4 +169,4 @@ The funded vault held 2,000 A and 2,000 B. After seeding it held 1,401.826223 of
 
 React, React DOM, viem, Vite and the React type packages declare MIT licenses. TypeScript and Playwright Core declare Apache-2.0. The lockfile also includes transitive ISC and BSD-3-Clause packages. Dependency packages carry their license texts. Product, fixture and upstream Solidity retain their existing notices. [Dependency lock](../viewer/package-lock.json) · [Upstream attribution](../experiments/m1/README.md#attribution-and-license-scope)
 
-The next M7 task is a reconstructible event-based statement and export. A6 still needs independent fresh-run rehearsal, including a permitted manager action and the full demonstration. The local receipt list lives only for its run. The M6 matched retainer delivered identical tested liquidity. Customer acceptance and economic justification remain open.
+Next demonstrate a permitted bounded manager action and its effect on service. A6 still needs an independent fresh setup and rehearsal of the full demonstration. The local receipt list lives only for its run. The M6 matched retainer delivered identical tested liquidity. Customer acceptance and economic justification remain open.
