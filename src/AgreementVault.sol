@@ -231,6 +231,7 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
     event Cancelled(uint256 indexed revision, bytes32 indexed termsHash, address indexed caller);
     event IdleWithdrawn(address indexed recipient, uint256 amount0, uint256 amount1);
 
+    /// @notice Fix the creating treasury, manager, creation chain and one-day cutoff before publishing revision one.
     constructor(bytes32 id, address namedManager, Bindings memory initialBindings) {
         if (id == bytes32(0)) revert MissingAgreementId();
         creationChainId = block.chainid;
@@ -239,19 +240,21 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         activationCutoff = block.timestamp + 1 days;
         treasury = msg.sender;
         manager = namedManager;
-        _publish(initialBindings);
+        publishTerms(initialBindings);
     }
 
+    /// @notice Replace draft bindings as the treasury. Publication clears both acceptance records.
     function revise(Bindings calldata next) external nonReentrant {
         if (msg.sender != treasury) revert NotTreasury();
-        _requireOpenTerms();
-        _publish(next);
+        requireOpenTerms();
+        publishTerms(next);
     }
 
+    /// @notice Record the calling party's consent to this hash before the cutoff. Repeating consent is idempotent.
     function accept(bytes32 expectedHash) external nonReentrant {
         if (msg.sender != treasury && msg.sender != manager) revert NotParty();
-        _requireOpenTerms();
-        _checkHash(expectedHash);
+        requireOpenTerms();
+        checkHash(expectedHash);
 
         if (msg.sender == treasury) {
             if (treasuryAcceptedRevision == revision) return;
@@ -263,16 +266,19 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         emit PartyAccepted(revision, expectedHash, msg.sender);
     }
 
-    function _requireOpenTerms() private view {
+    /// @notice Reject a draft edit or consent once funding, cancellation or the activation cutoff closes the proposal.
+    function requireOpenTerms() private view {
         if (cancelled || fundedPrincipal0 != 0) revert TermsClosed();
         if (block.timestamp >= activationCutoff) revert CutoffReached();
     }
 
-    function _checkHash(bytes32 expectedHash) private view {
+    /// @notice Compare the caller's commitment with the current domain-separated terms hash.
+    function checkHash(bytes32 expectedHash) private view {
         bytes32 current = termsHash();
         if (expectedHash != current) revert WrongTermsHash(expectedHash, current);
     }
 
+    /// @notice Resolve the lifecycle from consent, custody and chain time, including expiry before finalization.
     function state() public view returns (State) {
         if (scheduledEnd != 0) {
             if (recordedStop != 0 && recordedStop < scheduledEnd) return State.Terminated;
@@ -284,14 +290,15 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         return State.Draft;
     }
 
+    /// @notice Pull the agreed principal and separate B budget, then reconcile every debit and receipt before crediting escrow.
     function fund(bytes32 expectedHash) external nonReentrant {
         if (msg.sender != treasury) revert NotTreasury();
-        _requireOpenTerms();
-        _checkHash(expectedHash);
+        requireOpenTerms();
+        checkHash(expectedHash);
         if (state() != State.Accepted) revert NotAccepted();
 
-        CompensationEscrow escrow = _checkedEscrow(0);
-        Parameters memory p = _c1Parameters();
+        CompensationEscrow escrow = checkedEscrow(0);
+        Parameters memory p = c1Parameters();
         IC1Token token0 = IC1Token(bindings.token0);
         IC1Token token1 = IC1Token(bindings.token1);
         if (token0.decimals() != p.token0Decimals) revert InvalidDecimals(address(token0));
@@ -319,7 +326,8 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         emit Funded(revision, expectedHash, address(escrow), p.inventory0, p.inventory1, p.budget);
     }
 
-    function _checkedEscrow(uint256 expectedBudget) private view returns (CompensationEscrow escrow) {
+    /// @notice Require the canonical escrow runtime, fixed parties, token, vault and expected funded balance.
+    function checkedEscrow(uint256 expectedBudget) private view returns (CompensationEscrow escrow) {
         escrow = CompensationEscrow(bindings.escrow);
         if (
             address(escrow).codehash != escrowCodeHash || escrow.vault() != address(this)
@@ -329,6 +337,7 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         ) revert InvalidEscrow();
     }
 
+    /// @notice Close an unactivated agreement. Only the treasury may cancel before the cutoff.
     function cancel() external nonReentrant {
         if (scheduledEnd != 0) revert AlreadyActivated();
         if (msg.sender != treasury && block.timestamp < activationCutoff) revert NotTreasury();
@@ -337,9 +346,10 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         emit Cancelled(revision, termsHash(), msg.sender);
     }
 
+    /// @notice Transfer both idle balances to the treasury after cancellation or close. Either failed leg reverts the call.
     function withdrawIdle() external nonReentrant returns (uint256 amount0, uint256 amount1) {
         if (msg.sender != treasury) revert NotTreasury();
-        _requirePrincipalExit();
+        requirePrincipalExit();
         IC1Token token0 = IC1Token(bindings.token0);
         IC1Token token1 = IC1Token(bindings.token1);
         amount0 = token0.balanceOf(address(this));
@@ -357,7 +367,7 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
     {
         State status = state();
         if (status != State.Accepted && status != State.Funded) revert NotAccepted();
-        Parameters memory p = _c1Parameters();
+        Parameters memory p = c1Parameters();
         (bool ok, bytes memory data) =
             bindings.referenceAdapter.staticcall(abi.encodeCall(IOpeningReferenceAdapter.observation, ()));
         if (!ok || data.length != 9 * 32) revert UnreadableReference();
@@ -385,40 +395,42 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
     /// @notice Inspect feasibility at this instant. Activation must execute this check again before seeding.
     function preflightActivation(bytes32 expectedHash) public view returns (ActivationPreflight memory result) {
         if (state() != State.Funded) revert NotFunded();
-        _checkHash(expectedHash);
+        checkHash(expectedHash);
         if (block.chainid != creationChainId) revert WrongChain();
         if (treasuryAcceptedRevision != revision || managerAcceptedRevision != revision) revert NotAccepted();
         if (block.timestamp >= activationCutoff) revert CutoffReached();
 
-        Parameters memory p = _c1Parameters();
+        Parameters memory p = c1Parameters();
         if (fundedPrincipal0 != p.inventory0 || fundedPrincipal1 != p.inventory1) revert IncompleteFunding();
-        CompensationEscrow escrow = _checkedEscrow(p.budget);
-        result.escrowBalance = _available(address(escrow), bindings.token1, p.budget);
+        CompensationEscrow escrow = checkedEscrow(p.budget);
+        result.escrowBalance = availableBalance(address(escrow), bindings.token1, p.budget);
 
         (result.observation, result.lower, result.upper) = previewOpeningReference();
         if (p.seedLiquidity == 0 || p.seedLiquidity < p.minLiquidity || p.seedLiquidity > p.maxLiquidity) {
             revert InvalidSeedLiquidity();
         }
-        PoolKey memory key = _poolKey();
+        PoolKey memory key = poolKey();
         result.seed =
             openingQuote.seed(IPoolManager(bindings.poolManager), key, result.lower, result.upper, p.seedLiquidity);
         if (result.seed.amount0 > p.maxGrossInput0 || result.seed.amount1 > p.maxGrossInput1) revert SeedInputLimit();
         // Each actual vault balance must cover both the original mandate and its quoted seed leg.
-        result.available0 = _available(
+        result.available0 = availableBalance(
             address(this), bindings.token0, p.inventory0 > result.seed.amount0 ? p.inventory0 : result.seed.amount0
         );
-        result.available1 = _available(
+        result.available1 = availableBalance(
             address(this), bindings.token1, p.inventory1 > result.seed.amount1 ? p.inventory1 : result.seed.amount1
         );
     }
 
-    function _poolKey() private view returns (PoolKey memory) {
-        Parameters memory p = _c1Parameters();
+    /// @notice Reconstruct the full accepted core key with the fixed C1 fee and spacing.
+    function poolKey() private view returns (PoolKey memory) {
+        Parameters memory p = c1Parameters();
         return PoolKey(
             Currency.wrap(bindings.token0), Currency.wrap(bindings.token1), p.fee, p.tickSpacing, IHooks(bindings.hook)
         );
     }
 
+    /// @notice Repeat funded preflight, settle the treasury seed, then initialize the service clock from the actual position.
     function activate(bytes32 expectedHash) external nonReentrant {
         if (msg.sender != treasury) revert NotTreasury();
         ActivationPreflight memory q = preflightActivation(expectedHash);
@@ -432,9 +444,9 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         bandLower = q.lower;
         bandUpper = q.upper;
         positionPoolId = q.seed.id;
-        _openIdentity(q.lower, q.upper);
+        openIdentity(q.lower, q.upper);
         (BalanceDelta net, BalanceDelta fees) =
-            _modify(Operation.Seed, int256(uint256(q.seed.liquidity)), q.seed.amount0, q.seed.amount1);
+            modifyPosition(Operation.Seed, int256(uint256(q.seed.liquidity)), q.seed.amount0, q.seed.amount1);
         if (
             BalanceDelta.unwrap(fees) != 0 || int256(net.amount0()) != -int256(q.seed.amount0)
                 || int256(net.amount1()) != -int256(q.seed.amount1)
@@ -448,7 +460,7 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         ) revert SettlementMismatch();
         openingObservation = q.observation;
         start = block.timestamp;
-        scheduledEnd = start + _c1Parameters().duration;
+        scheduledEnd = start + c1Parameters().duration;
         hook.initializeClock(q.lower, q.upper, positionSalt, positionLiquidity, scheduledEnd);
         emit OpeningFixed(q.observation.answer, q.observation.updatedAt, sqrtPrice, tick);
         emit Activated(
@@ -471,40 +483,44 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         return keccak256(abi.encode(positionPoolId, address(this), positionLower, positionUpper, positionSalt));
     }
 
+    /// @notice Increase vault-owned liquidity inside the accepted range and the manager's gross input bounds.
     function add(bytes32 expectedId, int24 lower, int24 upper, uint128 liquidity, Bounds calldata bounds)
         external
         nonReentrant
     {
-        _beforeAdjustment(expectedId, bounds);
+        beforeAdjustment(expectedId, bounds);
         if (positionLiquidity != 0 && (lower != positionLower || upper != positionUpper)) revert PositionMismatch();
-        _addLeg(Operation.Add, lower, upper, liquidity, bounds);
-        _afterAdjustment();
+        addLeg(Operation.Add, lower, upper, liquidity, bounds);
+        afterAdjustment();
     }
 
+    /// @notice Reduce the identified position subject to the manager's minimum principal outputs.
     function remove(bytes32 expectedId, uint128 liquidity, Bounds calldata bounds) external nonReentrant {
-        _beforeAdjustment(expectedId, bounds);
-        _removeLeg(Operation.Remove, liquidity, bounds);
-        _afterAdjustment();
+        beforeAdjustment(expectedId, bounds);
+        removeLeg(Operation.Remove, liquidity, bounds);
+        afterAdjustment();
     }
 
+    /// @notice Remove the entire old identity and open another within both legs' bounds in one core transaction sequence.
     function rerange(bytes32 expectedId, int24 lower, int24 upper, uint128 liquidity, Bounds calldata bounds)
         external
         nonReentrant
     {
-        _beforeAdjustment(expectedId, bounds);
+        beforeAdjustment(expectedId, bounds);
         if (lower == positionLower && upper == positionUpper) revert InvalidRange();
-        _removeLeg(Operation.Rerange, positionLiquidity, bounds);
-        _addLeg(Operation.Rerange, lower, upper, liquidity, bounds);
-        _afterAdjustment();
+        removeLeg(Operation.Rerange, positionLiquidity, bounds);
+        addLeg(Operation.Rerange, lower, upper, liquidity, bounds);
+        afterAdjustment();
     }
 
-    function _beforeAdjustment(bytes32 expectedId, Bounds calldata b) private {
+    /// @notice Credit the pre-change state before the vault changes liquidity or retires the current salt.
+    function beforeAdjustment(bytes32 expectedId, Bounds calldata b) private {
         if (msg.sender != manager) revert NotManager();
         if (state() != State.Active) revert InvalidPeriod();
         if (block.chainid != creationChainId) revert WrongChain();
-        _checkHash(b.termsHash);
-        if (positionId() != expectedId || _actualLiquidity() != positionLiquidity) revert PositionMismatch();
-        Parameters memory p = _c1Parameters();
+        checkHash(b.termsHash);
+        if (positionId() != expectedId || actualLiquidity() != positionLiquidity) revert PositionMismatch();
+        Parameters memory p = c1Parameters();
         if (
             b.validFrom > block.timestamp || block.timestamp > b.deadline
                 || b.deadline - b.validFrom > p.maxExecutionWindow
@@ -519,20 +535,22 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         ServiceHook(bindings.hook).beforeAdjustment();
     }
 
-    function _afterAdjustment() private {
-        _publishPosition();
+    /// @notice Publish the final core position to the clock before recording the successful adjustment time.
+    function afterAdjustment() private {
+        publishPosition();
         lastAdjustment = block.timestamp;
     }
 
-    function _addLeg(Operation kind, int24 lower, int24 upper, uint128 liquidity, Bounds calldata b) private {
-        Parameters memory p = _c1Parameters();
+    /// @notice Check C1 range and liquidity limits and apply the tighter of caller and mandate input caps.
+    function addLeg(Operation kind, int24 lower, int24 upper, uint128 liquidity, Bounds calldata b) private {
+        Parameters memory p = c1Parameters();
         if (
             !ServiceRange.covers(lower, upper, bandLower, bandUpper)
                 || !ServiceRange.permitted(lower, upper, bandLower, bandUpper)
         ) revert InvalidRange();
         if (liquidity == 0 || uint256(positionLiquidity) + liquidity > p.maxLiquidity) revert LiquidityLimit();
-        if (positionLiquidity == 0) _openIdentity(lower, upper);
-        _modify(
+        if (positionLiquidity == 0) openIdentity(lower, upper);
+        modifyPosition(
             kind,
             int256(uint256(liquidity)),
             b.maxInput0 < p.maxGrossInput0 ? b.maxInput0 : p.maxGrossInput0,
@@ -540,16 +558,18 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         );
     }
 
-    function _removeLeg(Operation kind, uint128 liquidity, Bounds calldata b) private {
+    /// @notice Require a nonzero removable quantity and settle with the caller's output floors.
+    function removeLeg(Operation kind, uint128 liquidity, Bounds calldata b) private {
         if (liquidity == 0 || liquidity > positionLiquidity) revert LiquidityLimit();
-        _modify(kind, -int256(uint256(liquidity)), b.minOutput0, b.minOutput1);
+        modifyPosition(kind, -int256(uint256(liquidity)), b.minOutput0, b.minOutput1);
     }
 
-    function _openIdentity(int24 lower, int24 upper) private {
+    /// @notice Advance the salt and require the new owner/ticks/salt key to have zero core liquidity.
+    function openIdentity(int24 lower, int24 upper) private {
         positionSalt = bytes32(uint256(positionSalt) + 1);
         positionLower = lower;
         positionUpper = upper;
-        if (_actualLiquidity() != 0) revert PositionMismatch();
+        if (actualLiquidity() != 0) revert PositionMismatch();
     }
 
     /// @notice Only a successfully activated agreement exposes its authenticated service hook.
@@ -558,48 +578,54 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         return (ServiceHook(bindings.hook), scheduledEnd - start, effectiveStop() != 0);
     }
 
+    /// @notice Return the scheduled end on expiry or the recorded early stop, in chain seconds.
     function effectiveStop() public view returns (uint256) {
         return state() == State.Expired ? scheduledEnd : recordedStop;
     }
 
+    /// @notice Let the treasury freeze service at the earlier of chain time and the original end.
     function terminate() external nonReentrant {
         if (msg.sender != treasury) revert NotTreasury();
         if (scheduledEnd == 0) revert InvalidPeriod();
-        _close(block.timestamp < scheduledEnd ? block.timestamp : scheduledEnd);
+        closePeriod(block.timestamp < scheduledEnd ? block.timestamp : scheduledEnd);
     }
 
+    /// @notice Persist the scheduled stop once expiry is effective, independently of payments and removal.
     function finalizeExpiry() external nonReentrant {
         if (state() != State.Expired) revert InvalidPeriod();
-        _close(scheduledEnd);
+        closePeriod(scheduledEnd);
     }
 
-    function _close(uint256 stop) private {
+    /// @notice Stop the hook once and record the effective time before emitting the close reason.
+    function closePeriod(uint256 stop) private {
         if (recordedStop != 0) return;
         ServiceHook(bindings.hook).stopClock();
         recordedStop = stop;
         emit PeriodClosed(state(), stop);
     }
 
-    function _requirePrincipalExit() private view {
+    /// @notice Allow principal recovery only after cancellation, early termination or effective expiry.
+    function requirePrincipalExit() private view {
         State status = state();
         if (status != State.Cancelled && status != State.Terminated && status != State.Expired) revert NotCancelled();
     }
 
+    /// @notice Remove the full remaining core position into treasury custody without calling the escrow or reference.
     function exitLiquidity() external nonReentrant {
         if (msg.sender != treasury) revert NotTreasury();
-        _requirePrincipalExit();
+        requirePrincipalExit();
         uint128 liquidity = positionLiquidity;
         if (liquidity == 0) return;
         ServiceHook(bindings.hook).stopClock();
-        if (_actualLiquidity() != liquidity) revert PositionMismatch();
+        if (actualLiquidity() != liquidity) revert PositionMismatch();
         uint256 idle0 = IC1Token(bindings.token0).balanceOf(address(this));
         uint256 idle1 = IC1Token(bindings.token1).balanceOf(address(this));
-        (BalanceDelta net, BalanceDelta fees) = _modify(Operation.Exit, -int256(uint256(liquidity)), 0, 0);
+        (BalanceDelta net, BalanceDelta fees) = modifyPosition(Operation.Exit, -int256(uint256(liquidity)), 0, 0);
         if (net.amount0() < 0 || net.amount1() < 0) revert PositionMismatch();
         ExactToken.checkReceipt(IC1Token(bindings.token0), address(this), idle0, uint128(net.amount0()));
         ExactToken.checkReceipt(IC1Token(bindings.token1), address(this), idle1, uint128(net.amount1()));
         BalanceDelta principal = net - fees;
-        _publishPosition();
+        publishPosition();
         emit LiquidityExited(
             positionPoolId,
             positionSalt,
@@ -611,16 +637,19 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         );
     }
 
-    function _publishPosition() private {
+    /// @notice Install the final confirmed identity and liquidity in the bound service hook.
+    function publishPosition() private {
         ServiceHook(bindings.hook).installPosition(positionLower, positionUpper, positionSalt, positionLiquidity);
     }
 
-    function _actualLiquidity() private view returns (uint128 liquidity) {
+    /// @notice Read core liquidity under this vault's pool, owner, ticks and current salt.
+    function actualLiquidity() private view returns (uint128 liquidity) {
         (liquidity,,) = IPoolManager(bindings.poolManager)
             .getPositionInfo(positionPoolId, address(this), positionLower, positionUpper, positionSalt);
     }
 
-    function _modify(Operation kind, int256 delta, uint256 limit0, uint256 limit1)
+    /// @notice Bind an unlock to the requested leg and verify that the callback consumed its single-use context.
+    function modifyPosition(Operation kind, int256 delta, uint256 limit0, uint256 limit1)
         private
         returns (BalanceDelta net, BalanceDelta fees)
     {
@@ -631,7 +660,7 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         bytes memory result = IPoolManager(bindings.poolManager).unlock(data);
         if (pendingUnlock != 0) revert InvalidOperation();
         (net, fees) = abi.decode(result, (BalanceDelta, BalanceDelta));
-        uint128 actual = _actualLiquidity();
+        uint128 actual = actualLiquidity();
         if (int256(uint256(actual)) != int256(uint256(positionLiquidity)) + delta) revert PositionMismatch();
         positionLiquidity = actual;
         if (kind != Operation.Seed && kind != Operation.Exit) {
@@ -648,21 +677,22 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         IPoolManager core = IPoolManager(msg.sender);
         (Operation kind, IPoolManager.ModifyLiquidityParams memory params, uint256 limit0, uint256 limit1) =
             abi.decode(data, (Operation, IPoolManager.ModifyLiquidityParams, uint256, uint256));
-        PoolKey memory key = _poolKey();
+        PoolKey memory key = poolKey();
         bool adding = params.liquidityDelta > 0;
         ServiceHook hook = ServiceHook(address(key.hooks));
         if (adding) hook.armAdd(kind, params);
         (BalanceDelta net, BalanceDelta fees) = core.modifyLiquidity(key, params, abi.encode(kind));
         if (adding && hook.pendingAdd() != 0) revert InvalidOperation();
         BalanceDelta principal = net - fees;
-        _checkPrincipal(principal.amount0(), adding, limit0);
-        _checkPrincipal(principal.amount1(), adding, limit1);
-        _settle(core, key.currency0, net.amount0());
-        _settle(core, key.currency1, net.amount1());
+        checkPrincipal(principal.amount0(), adding, limit0);
+        checkPrincipal(principal.amount1(), adding, limit1);
+        settleCurrency(core, key.currency0, net.amount0());
+        settleCurrency(core, key.currency1, net.amount1());
         return abi.encode(net, fees);
     }
 
-    function _checkPrincipal(int128 amount, bool adding, uint256 limit) private pure {
+    /// @notice Reject a signed principal delta outside the leg's input ceiling or output floor.
+    function checkPrincipal(int128 amount, bool adding, uint256 limit) private pure {
         if (adding) {
             if (amount > 0 || uint256(-int256(amount)) > limit) revert PrincipalLimit();
         } else if (amount < 0 || uint128(amount) < limit) {
@@ -670,11 +700,12 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         }
     }
 
-    function _settle(IPoolManager core, Currency currency, int128 delta) private {
+    /// @notice Pay negative core deltas with exact tokens or take positive deltas into vault custody.
+    function settleCurrency(IPoolManager core, Currency currency, int128 delta) private {
         IC1Token token = IC1Token(Currency.unwrap(currency));
         if (delta < 0) {
             uint256 due = uint256(-int256(delta));
-            _available(address(this), address(token), due);
+            availableBalance(address(this), address(token), due);
             core.sync(currency);
             ExactToken.pay(token, address(core), due);
             if (core.settle() != due) revert SettlementMismatch();
@@ -688,15 +719,22 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         }
     }
 
-    function _available(address custodian, address token, uint256 required) private view returns (uint256 balance) {
+    /// @notice Return actual base-unit custody and revert if the required amount is missing.
+    function availableBalance(address custodian, address token, uint256 required)
+        private
+        view
+        returns (uint256 balance)
+    {
         balance = IC1Token(token).balanceOf(custodian);
         if (balance < required) revert InsufficientCustody(custodian, token, balance, required);
     }
 
+    /// @notice Commit to the schema and complete typed terms, including the chain, vault and revision.
     function termsHash() public view returns (bytes32) {
         return keccak256(abi.encode(TERMS_SCHEMA, currentTerms()));
     }
 
+    /// @notice Assemble the accepted domain, fixed beneficiaries, bindings and C1 quantities for independent encoding.
     function currentTerms() public view returns (Terms memory) {
         return Terms({
             chainId: creationChainId,
@@ -713,12 +751,13 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
             paymentToken: bindings.token1,
             referenceBase: bindings.token0,
             referenceQuote: bindings.token1,
-            parameters: _c1Parameters(),
+            parameters: c1Parameters(),
             rulesVersion: RULES_VERSION
         });
     }
 
-    function _publish(Bindings memory next) private {
+    /// @notice Validate the new identities, increment revision and invalidate prior consent before publishing.
+    function publishTerms(Bindings memory next) private {
         // C1 has separate parties, currencies, PoolManager, vault, hook and escrow.
         address[8] memory identities =
             [treasury, manager, next.token0, next.token1, next.poolManager, address(this), next.hook, next.escrow];
@@ -738,7 +777,8 @@ contract AgreementVault is CustodyLock, IUnlockCallback {
         emit TermsPublished(revision, termsHash());
     }
 
-    function _c1Parameters() private pure returns (Parameters memory) {
+    /// @notice Return the fixed C1 units, price and execution bounds shared by consent and execution.
+    function c1Parameters() private pure returns (Parameters memory) {
         return Parameters({
             fee: 3000,
             tickSpacing: ServiceRange.SPACING,

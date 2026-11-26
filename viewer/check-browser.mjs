@@ -59,15 +59,20 @@ try {
   const url = 'http://127.0.0.1:5173/'
   const manifestUrl = 'http://127.0.0.1:18547/deployment.json'
   const rpc = 'http://127.0.0.1:18547/rpc'
+  /** Escape a field label for exact matching in the browser. */
   const textMatch = (name) => new RegExp('^' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$')
+  /** Locate the value associated with an exact state label. */
   const field = (name) =>
     page
       .getByRole('term')
       .filter({ hasText: textMatch(name) })
       .locator('..')
       .locator('dd')
+  /** Read the text displayed for one exact state label. */
   const value = async (name) => (await field(name).innerText()).trim()
+  /** Wait for the expected element within the bounded browser check. */
   const wait = (locator) => locator.waitFor({ timeout: 12000 })
+  /** Wait for the specified reader error to be visible. */
   const alert = async (name) => wait(page.getByRole('alert').getByText(name, { exact: true }))
   if (phase === 'old-manifest') {
     const stale = JSON.parse(await readFile(process.argv[3], 'utf8'))
@@ -147,6 +152,7 @@ try {
         'mobile overflow'
       )
     } else {
+      /** Request a fresh snapshot through the same control as a user. */
       const refresh = () => page.getByRole('button', { name: 'Refresh reads' }).click()
       await page.route(rpc, (route) => route.abort())
       await refresh()
@@ -154,6 +160,7 @@ try {
       assert.match(await page.locator('.fresh').innerText(), /Stale snapshot/)
       assert.equal(await page.locator('#settlement').count(), 1)
       await page.unroute(rpc)
+      /** Inject an inconsistent RPC response and check the page's error state. */
       async function corrupt(method, reply, title) {
         await page.route(rpc, async (route) => {
           const request = route.request().postDataJSON()

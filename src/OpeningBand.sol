@@ -15,6 +15,7 @@ library OpeningBand {
     error InvalidWidth();
     error UnresolvedComparison();
 
+    /// @notice Round the eight-decimal parity-relative C1 price band outward to usable grid ticks.
     function calculate(uint256 answer, int24 spacing, uint16 halfWidthBps, int24 maxWidth)
         internal
         pure

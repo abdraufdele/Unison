@@ -30,10 +30,12 @@ type Controls = {
   receipts: Receipt[]
   problem: string | null
 }
+/** Resolve the demo actor label shown for a fixed transaction step. */
 const actorName = (actor: string) =>
   ({ treasury: 'Treasury', manager: 'Manager', trader: 'Trader', fixture: 'Mock-token operator' }[actor] ??
   actor)
 
+/** Show the launcher-authorized steps and their observed receipts for this run. */
 export function DemoControls({
   s,
   stale,
@@ -74,6 +76,7 @@ export function DemoControls({
   }, [s.readTime, stale, load])
 
   const ready = state && !stale && BigInt(state.head) === s.block.number && !pending
+  /** Send the selected fixed action with its current session token and expected stage. */
   async function submit(action?: Action) {
     if (!state || !ready || !enabled || locked.current || (!action && confirmation !== runId)) return
     locked.current = true

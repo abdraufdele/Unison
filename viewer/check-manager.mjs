@@ -2,8 +2,10 @@
 import assert from 'node:assert/strict'
 import { zeroHash } from 'viem'
 
+/** Drive the bounded replacement through Chromium and verify its mined receipt and rejection cases. */
 export async function exerciseManager(page, client, target, runId) {
   const headers = { Origin: 'http://127.0.0.1:5173' }
+  /** Read the current local controller journal for comparison with the browser. */
   const status = async () => (await page.request.get(target + '/controls', { headers })).json()
   const initial = await status()
   assert.equal(initial.runId, runId)
@@ -11,7 +13,9 @@ export async function exerciseManager(page, client, target, runId) {
   assert.equal(BigInt(initial.head), (await client.getBlock()).number)
   const csrf = { 'X-Unison-CSRF': initial.csrf, ...headers }
   const url = target + '/controls/action'
+  /** Locate the specific permitted action in the page. */
   const actionButton = (id) => page.locator('[data-action="' + id + '"]')
+  /** Execute one visible action and verify its mined transaction against the local chain. */
   async function step(id) {
     await actionButton(id).click()
     const currentReceipt = page.locator('[data-receipt="' + id + '"]')
@@ -36,6 +40,7 @@ export async function exerciseManager(page, client, target, runId) {
   await page.getByRole('button', { name: 'Use this demo run' }).click()
   assert.equal((await client.getBlock()).number, BigInt(initial.head))
   const body = { runId, version: initial.version, action: 'rerange', positionId: zeroHash }
+  /** Send a deliberately inconsistent control request and check the expected rejection status. */
   const reject = async (data, overrides, code) =>
     assert.equal((await page.request.post(url, { data, headers: { ...csrf, ...overrides } })).status(), code)
   await reject(body, {}, 409) // funded stage
@@ -50,6 +55,7 @@ export async function exerciseManager(page, client, target, runId) {
 
   // Forward the browser request to the real dispatcher with an obsolete displayed position identity.
   const browserURL = 'http://127.0.0.1:18547/controls/action'
+  /** Forward the modified manager request inside the intercepted browser route. */
   function deliver(route, body) {
     return route.fetch({
       url,

@@ -5,18 +5,20 @@ from functools import lru_cache
 
 from web3 import Web3
 
-from artifacts import build_id
+from artifacts import buildId
 
 
 class EvidenceError(ValueError):
     pass
 
 
+# Stop statement construction when chain history and contract evidence disagree.
 def require(ok, message):
     if not ok:
         raise EvidenceError(message)
 
 
+# Encode byte strings and integers losslessly for the JSON statement.
 def wire(value):
     if isinstance(value, bytes):
         return Web3.to_hex(value)
@@ -33,12 +35,14 @@ def wire(value):
     return value
 
 
+# Extract the header fields needed to check block order and count receipts.
 def header(b):
     return {"number": b.number, "hash": b.hash, "parentHash": b.parentHash,
             "timestamp": b.timestamp, "transactionCount": len(b.transactions)}
 
 
-def creation_block(run, funded):
+# Find the first block containing vault runtime code before the funded anchor.
+def creationBlock(run, funded):
     eth = run.w.eth
     lo, hi = 0, funded
     while lo < hi:
@@ -51,10 +55,12 @@ def creation_block(run, funded):
     return lo
 
 
-def match_logs(queried, recorded):
+# Compare ordered product logs with all matching logs in canonical receipts.
+def matchLogs(queried, recorded):
     ids = [(x.blockNumber, x.transactionIndex, x.logIndex) for x in queried]
     require(len(ids) == len(set(ids)), "Duplicate product log.")
     require(ids == sorted(ids), "Product logs arrived out of order.")
+    # Build the full identity and payload used for receipt-to-query comparison.
     def content(x):
         return (x.blockHash, x.transactionHash, x.transactionIndex, x.logIndex, x.address,
                 tuple(x.topics), x.data, x.get("removed", False))
@@ -63,6 +69,7 @@ def match_logs(queried, recorded):
             "Incomplete or inconsistent product logs versus canonical block receipts.")
 
 
+# Collect bounded block history and reconcile product events with transaction receipts.
 def history(run, first, last, journal):
     eth = run.w.eth
     decoders = {c.address: {Web3.to_bytes(hexstr=event.topic): event for event in c.events}
@@ -101,7 +108,7 @@ def history(run, first, last, journal):
                                "block": n, "blockHash": b.hash, "timestamp": b.timestamp,
                                "transactionIndex": index, "status": "reverted"})
     require(deployed and not known, "Missing creation receipt or known failure receipt.")
-    match_logs(queries, logs)
+    matchLogs(queries, logs)
     events = []
     for x in queries:
         decoder = decoders[x.address].get(x.topics[0])
@@ -113,14 +120,17 @@ def history(run, first, last, journal):
     return events, blocks, failed
 
 
-def split_delta(value):
+# Decode the two signed int128 currency legs from a packed v4 delta.
+def splitDelta(value):
     # v4 BalanceDelta packs two signed int128 legs into one int256.
     return (value >> 128, ((value + (1 << 127)) % (1 << 128)) - (1 << 127))
 
 
+# Reconstruct principal, fees and compensation movements and compare actual token balances.
 def movements(run, events, blocks, terms):
     rows, deltas = [], defaultdict(Counter)
     a = terms.bindings
+    # Book one observed transfer against the sender and fixed recipient at the event block.
     def move(kind, token, sender, recipient, amount):
         require(amount >= 0, "Negative transfer amount.")
         rows.append({"kind": kind, "token": token.address, "sender": sender, "recipient": recipient,
@@ -146,7 +156,7 @@ def movements(run, events, blocks, terms):
             if name == "Activated":
                 principal, fees = [-x["amount0"], -x["amount1"]], [0, 0]
             elif name == "PositionAdjusted":
-                principal, fees = split_delta(x["principal"]), split_delta(x["fees"])
+                principal, fees = splitDelta(x["principal"]), splitDelta(x["fees"])
             else:
                 principal, fees = [x["principal0"], x["principal1"]], [x["fees0"], x["fees1"]]
             for i, token in enumerate((run.a, run.b)):
@@ -154,6 +164,7 @@ def movements(run, events, blocks, terms):
                 sender, recipient = (a.poolManager, run.v.address) if net >= 0 else (run.v.address, a.poolManager)
                 move(name, token, sender, recipient, abs(net))
                 rows[-1].update(vaultPrincipalDelta=principal[i], vaultFeeDelta=fees[i])
+    # Read one account's actual token balance at a historical block.
     @lru_cache(None)
     def balance(token, addr, n):
         contract = run.a if token == run.a.address else run.b
@@ -166,6 +177,7 @@ def movements(run, events, blocks, terms):
     return rows
 
 
+# Integrate the previous qualification over clipped checkpoint intervals and derive earned units.
 def service(run, events, activation, close, terms, as_of):
     checkpoints = [(i, e) for i, e in enumerate(events) if e["name"] == "ServiceCheckpoint"]
     if not activation:
@@ -186,6 +198,7 @@ def service(run, events, activation, close, terms, as_of):
             positions[position] = (x["lower"], x["upper"])
     intervals = []
     prev, total, qualified, reasons, source = first, 0, False, [], None
+    # Accumulate the elapsed interval and record its ending observation for the statement.
     def interval(to, kind, ending):
         nonlocal total
         require(prev <= to <= stop, "Checkpoint outside service period.")
@@ -230,9 +243,10 @@ def service(run, events, activation, close, terms, as_of):
     return intervals, persisted, total
 
 
-def statement(session, run_id, number, block_hash):
+# Reconcile one run at a named block before exporting service, receipts and financial rights.
+def statement(session, run_id, number, blockHash):
     run, m = session.run, session.manifest
-    require(m["schema"] == 1 and m["buildId"] == build_id(), "Unsupported deployment schema or build.")
+    require(m["schema"] == 1 and m["buildId"] == buildId(), "Unsupported deployment schema or build.")
     require(not session.closing and run_id == m["runId"], "Statement belongs to a different or closing run.")
     # Keep the launcher identity checks used by writes, but never invoke a write or time control.
     session.verify()
@@ -240,18 +254,20 @@ def statement(session, run_id, number, block_hash):
     anchor = int(m["anchor"]["number"])
     require(anchor <= number <= eth.block_number, "As-of block is outside the funded run.")
     last = eth.get_block(number)
-    require(Web3.to_hex(last.hash) == block_hash, "As-of block hash changed.")
-    first = creation_block(run, anchor)
+    require(Web3.to_hex(last.hash) == blockHash, "As-of block hash changed.")
+    first = creationBlock(run, anchor)
     require(number-first < 128, "Incomplete coverage: maximum 128 blocks per local statement.")
     events, blocks, failed = history(run, first, number, session.history)
     require(blocks[number].hash == last.hash and Web3.to_hex(blocks[anchor].hash) == m["anchor"]["hash"],
             "Funded or as-of block changed during receipt scan.")
     vault = run.w.eth.contract(address=run.v.address, abi=run.v.abi, decode_tuples=True)
+    # Call the selected contract view at the snapshot block.
     def read(fn):
         return fn.call(block_identifier=number)
     terms, terms_hash = read(vault.functions.currentTerms()), read(vault.functions.termsHash())
     require(Web3.to_hex(terms.agreementId) == run_id and terms.chainId == m["chainId"], "Agreement mismatch.")
 
+    # Require the expected cardinality of the selected lifecycle event.
     def single(name, required=True):
         found = [e for e in events if e["name"] == name]
         require(len(found) == 1 if required else len(found) <= 1, f"Missing or repeated {name} event.")

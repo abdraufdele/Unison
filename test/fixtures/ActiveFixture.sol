@@ -19,8 +19,11 @@ import {CoreSeedHarness} from "./CoreSeedHarness.sol";
 import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 
 interface VmLifecycle {
+    /// @notice Make the selected read revert with the supplied error bytes.
     function mockCallRevert(address target, bytes calldata data, bytes calldata reason) external;
+    /// @notice Restore actual contract calls after an injected read failure.
     function clearMockedCalls() external;
+    /// @notice Require the next operation to revert under the selected Foundry expectation.
     function expectRevert() external;
 }
 
@@ -35,7 +38,8 @@ abstract contract ActiveFixture is CustodyFixture {
     MockOpeningReferenceAdapter internal adapter;
     bytes32 internal h;
 
-    function _configure(address boundVault) internal {
+    /// @notice Bind the test's pool or opening reference before inspecting the current proposal.
+    function configureFixture(address boundVault) internal {
         vm.warp(10_000);
         core = new PoolManager(address(this));
         Currency c0 = Currency.wrap(address(a));
@@ -78,21 +82,25 @@ abstract contract ActiveFixture is CustodyFixture {
         core.initialize(key, 1 << 96);
     }
 
-    function _ready() internal {
-        _configure(address(vault));
-        _fund();
+    /// @notice Configure the opening pool and prepare the funded vault for a preflight or activation.
+    function prepareFundedFixture() internal {
+        configureFixture(address(vault));
+        fundFixture();
     }
 
-    function _active() internal {
-        _ready();
+    /// @notice Prepare funded custody and activate the seed against the fixture core.
+    function activateFixture() internal {
+        prepareFundedFixture();
         vault.activate(h);
     }
 
-    function _bounds() internal view returns (AgreementVault.Bounds memory) {
+    /// @notice Build the execution envelope from the current terms hash and this block's time.
+    function adjustmentBounds() internal view returns (AgreementVault.Bounds memory) {
         return AgreementVault.Bounds(h, block.timestamp, block.timestamp, -240, 240, PRINCIPAL, PRINCIPAL, 0, 0);
     }
 
-    function _swap(int24 target) internal {
+    /// @notice Move the stored pool price toward a target tick using a separately funded trader.
+    function swapToTick(int24 target) internal {
         (uint160 price,,,) = core.getSlot0(key.toId());
         uint160 limit = TickMath.getSqrtPriceAtTick(target);
         if (price == limit) return;
@@ -109,7 +117,8 @@ abstract contract ActiveFixture is CustodyFixture {
         }
     }
 
-    function _liquidity(address owner, bytes32 salt) internal view returns (uint128 l) {
+    /// @notice Read actual core liquidity under the supplied owner and salt at the seed ticks.
+    function seedRangeLiquidity(address owner, bytes32 salt) internal view returns (uint128 l) {
         (l,,) = core.getPositionInfo(key.toId(), owner, -120, 120, salt);
     }
 }

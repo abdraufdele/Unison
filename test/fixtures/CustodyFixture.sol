@@ -7,6 +7,7 @@ import {IC1Token, CustodyLock} from "../../src/ExactToken.sol";
 import {Vm} from "../AgreementVaultAcceptance.t.sol";
 
 interface ITransferProbe {
+    /// @notice Run the test's configured probe during a mock token transfer.
     function onTransfer() external;
 }
 
@@ -30,39 +31,47 @@ contract CustodyToken is IC1Token {
     Fault private fault;
     ITransferProbe private probe;
 
+    /// @notice Increase the fixture balance of the specified recipient in base units.
     function mint(address to, uint256 amount) external {
         balanceOf[to] += amount;
     }
 
+    /// @notice Override the mock denomination for metadata validation tests.
     function setDecimals(uint8 value) external {
         decimals = value;
     }
 
+    /// @notice Select a transfer result for one sender and recipient in the local token.
     function setFault(address sender, address recipient, Fault value) external {
         faultSender = sender;
         faultRecipient = recipient;
         fault = value;
     }
 
+    /// @notice Configure the callback probe used during a mock transfer.
     function setProbe(ITransferProbe target) external {
         probe = target;
     }
 
+    /// @notice Set the mock spender's allowance in token base units.
     function approve(address spender, uint256 amount) external returns (bool) {
         allowance[msg.sender][spender] = amount;
         return true;
     }
 
+    /// @notice Spend the caller's allowance and apply any route-specific mock behavior.
     function transferFrom(address from, address to, uint256 amount) external returns (bool) {
         allowance[from][msg.sender] -= amount;
-        return _move(from, to, amount);
+        return moveMockTokens(from, to, amount);
     }
 
+    /// @notice Apply the mock route behavior to a caller-funded transfer.
     function transfer(address to, uint256 amount) external returns (bool) {
-        return _move(msg.sender, to, amount);
+        return moveMockTokens(msg.sender, to, amount);
     }
 
-    function _move(address from, address to, uint256 amount) private returns (bool) {
+    /// @notice Apply the selected route fault and record the mock token's actual debit and credit.
+    function moveMockTokens(address from, address to, uint256 amount) private returns (bool) {
         Fault active = from == faultSender && to == faultRecipient ? fault : Fault.None;
         require(active != Fault.Revert, "blocked route");
         balanceOf[from] -= amount;
@@ -103,6 +112,7 @@ abstract contract CustodyFixture is ITransferProbe {
     Probe internal probe;
     uint256 internal blockedCalls;
 
+    /// @notice Create the initial vault and actors shared by this suite before each test.
     function setUp() public {
         a = new CustodyToken();
         b = new CustodyToken();
@@ -126,28 +136,35 @@ abstract contract CustodyFixture is ITransferProbe {
         b.approve(address(vault), PRINCIPAL + BUDGET);
     }
 
-    function _accept() internal {
+    /// @notice Record the selected fixture parties' decisions against the vault's current proposal.
+    function acceptTerms() internal {
         bytes32 h = vault.termsHash();
         vault.accept(h);
         vm.prank(MANAGER);
         vault.accept(h);
     }
 
-    function _fund() internal {
-        _accept();
+    /// @notice Obtain both consents and deposit principal and compensation from the fixture treasury.
+    function fundFixture() internal {
+        acceptTerms();
         vault.fund(vault.termsHash());
     }
 
-    function _give(CustodyToken token, address to, uint256 amount) internal {
+    /// @notice Credit a recipient with extra mock units outside the agreement's funded rights.
+    function giveTokens(CustodyToken token, address to, uint256 amount) internal {
         token.mint(DONOR, amount);
         vm.prank(DONOR);
         require(token.transfer(to, amount), "gift failed");
     }
 
-    function _balances(uint256 treasuryA, uint256 treasuryB, uint256 vaultA, uint256 vaultB, uint256 escrowB)
-        internal
-        view
-    {
+    /// @notice Compare treasury, vault and escrow balances in token base units.
+    function assertCustodyBalances(
+        uint256 treasuryA,
+        uint256 treasuryB,
+        uint256 vaultA,
+        uint256 vaultB,
+        uint256 escrowB
+    ) internal view {
         require(a.balanceOf(address(this)) == treasuryA && b.balanceOf(address(this)) == treasuryB, "treasury balances");
         require(a.balanceOf(address(vault)) == vaultA && b.balanceOf(address(vault)) == vaultB, "principal custody");
         require(b.balanceOf(address(escrow)) == escrowB, "budget custody");
@@ -160,29 +177,30 @@ abstract contract CustodyFixture is ITransferProbe {
             try vault.fund(vault.termsHash()) {
                 revert("nested funding");
             } catch (bytes memory err) {
-                _blocked(err);
+                expectLockedCall(err);
             }
             try vault.cancel() {
                 revert("nested cancellation");
             } catch (bytes memory err) {
-                _blocked(err);
+                expectLockedCall(err);
             }
         } else if (probe == Probe.Withdrawal) {
             try vault.withdrawIdle() {
                 revert("nested withdrawal");
             } catch (bytes memory err) {
-                _blocked(err);
+                expectLockedCall(err);
             }
         } else {
             try escrow.refund() {
                 revert("nested refund");
             } catch (bytes memory err) {
-                _blocked(err);
+                expectLockedCall(err);
             }
         }
     }
 
-    function _blocked(bytes memory err) private {
+    /// @notice Require the attempted callback to fail with the custody lock's expected error.
+    function expectLockedCall(bytes memory err) private {
         require(bytes4(err) == CustodyLock.ReentrantCall.selector, "wrong callback rejection");
         ++blockedCalls;
     }

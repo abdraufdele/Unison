@@ -7,7 +7,8 @@ from web3.logs import DISCARD
 from artifacts import fixture
 
 
-def reconcile_manager(run, session):
+# Compare the manager journey's receipts and final balances with independent core reads.
+def reconcileManager(run, session):
     eth, vault = run.w.eth, run.v
     receipts = {r["action"]: eth.get_transaction_receipt(r["hash"]) for r in session.history}
     adjustment = receipts["rerange"]
@@ -17,9 +18,11 @@ def reconcile_manager(run, session):
     final = receipts["rangeWithdraw"].blockNumber
     unit, liquidity = fixture.UNIT, fixture.L
 
+    # Read both token balances for the selected account at the requested block.
     def pair(address, block):
         return [token.functions.balanceOf(address).call(block_identifier=block) for token in (run.a, run.b)]
 
+    # Read the specified core position for independent comparison with the vault.
     def position(edge, salt, block):
         return run.router.functions.position(run.key, vault.address, -edge, edge, fixture.word(salt)).call(block_identifier=block)
 
@@ -40,6 +43,7 @@ def reconcile_manager(run, session):
     assert [position(120, 1, n-1)[3], position(180, 2, n-1)[3]] == [liquidity, 0]
     assert [position(120, 1, n)[3], position(180, 2, n)[3]] == [0, liquidity]
 
+    # Reconstruct the position hash from the pool, vault, symmetric ticks and salt.
     def identity(edge, salt):
         return Web3.keccak(run.w.codec.encode(["bytes32", "address", "int24", "int24", "bytes32"],
                            [pool_id, vault.address, -edge, edge, fixture.word(salt)]))
@@ -55,14 +59,16 @@ def reconcile_manager(run, session):
     assert vault.functions.lastAdjustment().call(block_identifier=n-1) == 0
     assert vault.functions.lastAdjustment().call(block_identifier=n) == 2031
     # Read-only probe immediately after the successful operation; valid caller, ID, ticks, period and limits.
-    def removal_args(at):
+    # Build the bounded removal request for the selected fixture timestamp.
+    def removalArgs(at):
         return [new, liquidity//4, (run.h, at, at, -180, 180, 900*unit, 900*unit, 0, 0)]
-    probe = {"from": tx["from"], "to": tx.to, "data": vault.encode_abi("remove", args=removal_args(2031))}
+    probe = {"from": tx["from"], "to": tx.to, "data": vault.encode_abi("remove", args=removalArgs(2031))}
     error = run.w.provider.make_request("eth_call", [probe, hex(n)])["error"]
     assert error["data"] == Web3.to_hex(Web3.keccak(text="AdjustmentCooldown()")[:4])
-    vault.functions.remove(*removal_args(2090)).call({"from": tx["from"]}, block_identifier=swap_block)
+    vault.functions.remove(*removalArgs(2090)).call({"from": tx["from"]}, block_identifier=swap_block)
 
     q96 = 1 << 96
+    # Compute expected token legs at the supplied price and range with direction-specific rounding.
     def principal(edge, sqrt, adding):
         lo, hi = [run.router.functions.price(tick).call() for tick in (-edge, edge)]
         assert lo <= sqrt <= hi
@@ -72,6 +78,7 @@ def reconcile_manager(run, session):
     recovered, installed = principal(120, q96, False), principal(180, q96, True)
     remove_leg, add_leg = vault.events.PositionAdjusted().process_receipt(adjustment, errors=DISCARD)
     # Compare both v4 signed int128 words independently with rounded principal at the observed price.
+    # Encode both signed currency amounts in the core BalanceDelta representation.
     def packed(pair):
         return (pair[0] << 128) + (pair[1] % (1 << 128))
     assert remove_leg.args.principal == packed(recovered) and remove_leg.args.fees == 0

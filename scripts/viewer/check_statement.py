@@ -16,17 +16,20 @@ from journey import Journey
 from statement import EvidenceError, statement
 
 
-def check_export(server, session, case):
+# Run the Chromium download checks against this isolated statement server.
+def checkExport(server, session, case):
     subprocess.run(["node", str(ROOT/"viewer/check-statement.mjs"), str(server.server_port), case,
                     session.manifest["runId"]], cwd=ROOT, check=True, timeout=55)
 
 
+# Challenge event completeness, uniqueness and ordering against actual receipts.
 def faults(session):
     eth = session.run.w.eth
     head = eth.get_block("latest")
-    args = (session, session.manifest["runId"], head.number, demo.block_hash(head))
+    args = (session, session.manifest["runId"], head.number, demo.blockHash(head))
     original = eth.get_logs
     for mode, message in (("missing","Incomplete"), ("duplicate","Duplicate"), ("order","order")):
+        # Alter one log response to exercise the selected statement rejection.
         def damaged(query):
             records = original(query)
             if len(records) < 2:
@@ -44,6 +47,7 @@ def faults(session):
     print("Missing, duplicate and out-of-order queries rejected against actual product receipts.", flush=True)
 
 
+# Create an isolated funded run and exercise the requested statement scenario.
 def replay(server, scenario):
     with fixture.chain(viewer=True) as w:
         run = fixture.Run(w)
@@ -54,6 +58,7 @@ def replay(server, scenario):
         server.manifest, server.journey = m, session
         server.reader = IPCProvider(w.provider.ipc_path, timeout=5)
         session.verify()
+        # Submit one fixed action with the session identity and expected journal version.
         def act(action):
             conn = HTTPConnection(demo.HOST, server.server_port, timeout=15)
             try:
@@ -66,29 +71,29 @@ def replay(server, scenario):
             finally:
                 conn.close()
         if scenario == "manager":
-            check_export(server, session, scenario)
-            from check_manager import reconcile_manager
-            reconcile_manager(run, session)
+            checkExport(server, session, scenario)
+            from check_manager import reconcileManager
+            reconcileManager(run, session)
             return
         if scenario == "payment":
-            check_export(server, session, "funded")
+            checkExport(server, session, "funded")
         act("activate")
         if scenario == "expiry":
             # Test-only explicit observation, on this test's own IPC. No finalization transaction.
             run.rpc("evm_setNextBlockTimestamp", [2307])
             run.rpc("evm_mine", [])
-            check_export(server, session, "expiry")
+            checkExport(server, session, "expiry")
         elif scenario == "swap":
             for action in ("interrupt", "return", "returnClose"):
                 act(action)
-            check_export(server, session, "swap")
+            checkExport(server, session, "swap")
         else:
-            check_export(server, session, "active")
+            checkExport(server, session, "active")
             for action in ("trade","claim40","checkpoint","block","failedClaim","terminate","revoked",
                            "remove","withdraw","refund","restore","claim20","repeatClaim","repeatRefund"):
                 act(action)
                 if action in ("terminate","refund","repeatRefund"):
-                    check_export(server, session, action)
+                    checkExport(server, session, action)
             faults(session)
 
 

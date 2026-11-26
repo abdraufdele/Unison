@@ -7,6 +7,7 @@ import {FullMath} from "v4-core/src/libraries/FullMath.sol";
 import {ServiceHook} from "./ServiceHook.sol";
 
 interface ISettlementVault {
+    /// @notice Read the activated clock, original duration and terminal status from the agreement vault.
     function settlementContext() external view returns (ServiceHook clock, uint256 duration, bool terminal);
 }
 
@@ -30,6 +31,7 @@ contract CompensationEscrow is CustodyLock {
     event CompensationClaimed(address indexed recipient, uint256 amount);
     event BudgetRefunded(address indexed recipient, uint256 amount);
 
+    /// @notice Bind this single budget to the vault, payment token and two fixed recipients.
     constructor(address agreementVault, IC1Token token, address treasury, address manager) {
         vault = agreementVault;
         paymentToken = token;
@@ -48,58 +50,68 @@ contract CompensationEscrow is CustodyLock {
     /// @notice Earned units as of chain time. The clock exposes persisted Q separately.
     function earned() public view returns (uint256) {
         (ServiceHook clock, uint256 duration,) = ISettlementVault(vault).settlementContext();
-        return _projectedEarned(clock, duration);
+        return projectedEarned(clock, duration);
     }
 
+    /// @notice Return cumulative earned base units less amounts already paid to the manager.
     function claimable() public view returns (uint256) {
         return earned() - claimed;
     }
 
+    /// @notice Return the earned unpaid amount protected from the treasury's refund.
     function reserved() external view returns (uint256) {
         return claimable();
     }
 
+    /// @notice Return credited budget still held for the parties, excluding unsolicited gifts.
     function accounted() external view returns (uint256) {
         return fundedBudget - claimed - refunded;
     }
 
+    /// @notice Return the final unearned remainder net of refunds, or zero while the period is open.
     function refundable() external view returns (uint256) {
         (ServiceHook clock, uint256 duration, bool terminal) = ISettlementVault(vault).settlementContext();
-        return terminal ? _refundDue(_projectedEarned(clock, duration)) : 0;
+        return terminal ? refundDue(projectedEarned(clock, duration)) : 0;
     }
 
-    function _projectedEarned(ServiceHook clock, uint256 duration) private view returns (uint256) {
-        return address(clock) == address(0) ? 0 : _earned(clock.projectedSeconds(), duration);
+    /// @notice Convert the live clock projection to entitlement, treating an unactivated agreement as zero.
+    function projectedEarned(ServiceHook clock, uint256 duration) private view returns (uint256) {
+        return address(clock) == address(0) ? 0 : calculateEarnedCompensation(clock.projectedSeconds(), duration);
     }
 
-    function _checkpointEarned(ServiceHook clock, uint256 duration) private returns (uint256) {
-        return address(clock) == address(0) ? 0 : _earned(clock.checkpoint(), duration);
+    /// @notice Persist the service interval before calculating a transfer against cumulative earned units.
+    function checkpointEarned(ServiceHook clock, uint256 duration) private returns (uint256) {
+        return address(clock) == address(0) ? 0 : calculateEarnedCompensation(clock.checkpoint(), duration);
     }
 
-    function _earned(uint256 qualifyingSeconds, uint256 duration) private view returns (uint256) {
+    /// @notice Floor funded budget times qualifying seconds divided by the original duration, rejecting invalid time.
+    function calculateEarnedCompensation(uint256 qualifyingSeconds, uint256 duration) private view returns (uint256) {
         if (duration == 0 || qualifyingSeconds > duration) revert InvalidServiceTime();
         // The accepted vault credits the exact full budget before it can activate.
         return FullMath.mulDiv(fundedBudget, qualifyingSeconds, duration);
     }
 
-    function _refundDue(uint256 totalEarned) private view returns (uint256) {
+    /// @notice Subtract all earned units and earlier refunds from credited funding so unpaid earnings stay reserved.
+    function refundDue(uint256 totalEarned) private view returns (uint256) {
         return fundedBudget - totalEarned - refunded;
     }
 
+    /// @notice Checkpoint entitlement and pay only its unpaid portion to the fixed manager. A failed payment reverts the credit.
     function claim() external nonReentrant returns (uint256 amount) {
         (ServiceHook clock, uint256 duration, bool terminal) = ISettlementVault(vault).settlementContext();
         if (address(clock) == address(0) && !terminal) revert ClaimUnavailable();
-        amount = _checkpointEarned(clock, duration) - claimed;
+        amount = checkpointEarned(clock, duration) - claimed;
         if (amount == 0) return 0;
         claimed += amount;
         ExactToken.pay(paymentToken, managerRecipient, amount);
         emit CompensationClaimed(managerRecipient, amount);
     }
 
+    /// @notice After close, pay only the unearned and unrefunded base units to the fixed treasury.
     function refund() external nonReentrant returns (uint256 amount) {
         (ServiceHook clock, uint256 duration, bool terminal) = ISettlementVault(vault).settlementContext();
         if (!terminal) revert NotTerminal();
-        amount = _refundDue(_checkpointEarned(clock, duration));
+        amount = refundDue(checkpointEarned(clock, duration));
         if (amount == 0) return 0;
         refunded += amount;
         ExactToken.pay(paymentToken, treasuryRecipient, amount);

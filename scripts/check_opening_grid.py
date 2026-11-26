@@ -9,7 +9,8 @@ TARGET_SCALE = 10**10
 PRECISION = 10**90
 
 
-def grid_floors():
+# Certify each scaled grid price with directed rational bounds.
+def gridFloors():
     # Advance one whole grid step at a time with its exact rational numerator/denominator.
     # Round both endpoints outward at 90 decimal places, then certify each integer bin.
     prices = {0: TARGET_SCALE}
@@ -25,8 +26,9 @@ def grid_floors():
     return prices
 
 
+# Print independent grid digests and adversarial neighboring feed vectors.
 def main():
-    prices = grid_floors()
+    prices = gridFloors()
     for start, stop in [(-LIMIT, -60), (0, 443580), (443640, LIMIT)]:
         words = b"".join(prices[t].to_bytes(32, "big") for t in range(start, stop + 1, SPACING))
         print(start, stop, len(words) // 32, sha256(words).hexdigest())

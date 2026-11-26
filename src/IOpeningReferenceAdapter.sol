@@ -15,5 +15,6 @@ interface IOpeningReferenceAdapter {
         bool complete;
     }
 
+    /// @notice Read one opening observation including source, denominations, scale, completion and timestamp.
     function observation() external view returns (Observation memory);
 }

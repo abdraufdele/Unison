@@ -20,7 +20,8 @@ contract ServiceClockTest is ActiveFixture {
     // endpoint. Advance simulated time and integrate that predicate before the next action.
     uint256 private expected;
 
-    function _actualQualification() private view returns (bool) {
+    /// @notice Derive qualification independently from core tick, range and actual position liquidity.
+    function coreQualifies() private view returns (bool) {
         int24 lower = vault.positionLower();
         int24 upper = vault.positionUpper();
         bytes32 salt = vault.positionSalt();
@@ -35,158 +36,171 @@ contract ServiceClockTest is ActiveFixture {
             && upper - lower <= 480 && lower <= tick && tick < upper;
     }
 
-    function _advanceTo(uint256 next) private {
+    /// @notice Credit the model's prior qualification before moving the fixture clock.
+    function advanceClockModel(uint256 next) private {
         uint256 nowTime = block.timestamp;
         require(next >= nowTime);
-        if (_actualQualification()) {
+        if (coreQualifies()) {
             uint256 end = vault.scheduledEnd();
             expected += (next < end ? next : end) - nowTime;
         }
         vm.warp(next);
-        _checkProjection();
+        assertClockProjection();
     }
 
-    function _checkProjection() private view {
+    /// @notice Compare projected service seconds with the independent interval sum.
+    function assertClockProjection() private view {
         (bool qualifies,) = hook.qualification();
-        require(qualifies == _actualQualification(), "actual C1 qualification");
+        require(qualifies == coreQualifies(), "actual C1 qualification");
         require(hook.projectedSeconds() == expected && expected <= 300, "independent projection");
     }
 
-    function _persist() private {
+    /// @notice Persist the current interval and compare stored and projected time.
+    function checkpointAndCompare() private {
         vm.prank(DONOR);
         require(hook.checkpoint() == expected && hook.qualifyingSeconds() == expected, "independent checkpoint");
-        _checkProjection();
+        assertClockProjection();
     }
 
-    function _flags(uint8 expectedFailures) private view {
+    /// @notice Compare qualification and its failure bitmask with the expected predicates.
+    function assertQualificationFlags(uint8 expectedFailures) private view {
         (bool qualified, uint8 failures) = hook.qualification();
         require(failures == expectedFailures && qualified == (failures == 0), "qualification predicates");
     }
 
+    /// @notice Move price out of range and back with external swaps and reconcile 180 qualifying seconds.
     function testExternalSwapsInterruptAndRestore180Seconds() public {
-        _active();
-        _advanceTo(10_090);
-        _swap(120);
+        activateFixture();
+        advanceClockModel(10_090);
+        swapToTick(120);
         require(hook.observedTick() == 120 && hook.qualifyingSeconds() == 90);
-        _flags(hook.TICK_OUTSIDE());
-        _advanceTo(10_210);
-        _swap(0);
-        _flags(0);
+        assertQualificationFlags(hook.TICK_OUTSIDE());
+        advanceClockModel(10_210);
+        swapToTick(0);
+        assertQualificationFlags(0);
         require(hook.qualifyingSeconds() == 90);
-        _advanceTo(10_300);
-        _flags(hook.PERIOD_ENDED());
+        advanceClockModel(10_300);
+        assertQualificationFlags(hook.PERIOD_ENDED());
         vault.finalizeExpiry();
         require(expected == 180 && hook.qualifyingSeconds() == 180 && hook.lastCheckpoint() == 10_300);
-        _advanceTo(10_390);
-        _swap(121);
-        _persist();
+        advanceClockModel(10_390);
+        swapToTick(121);
+        checkpointAndCompare();
     }
 
+    /// @notice Partition passive service with checkpoints and verify late persistence clips at the original end.
     function testPassiveProjectionPartitionAndLateExpiry() public {
-        _active();
+        activateFixture();
         uint256 snapshot = vm.snapshotState();
-        _advanceTo(10_350);
+        advanceClockModel(10_350);
         require(hook.qualifyingSeconds() == 0 && expected == 300);
         vault.finalizeExpiry();
         uint256 single = hook.qualifyingSeconds();
         require(vm.revertToStateAndDelete(snapshot));
         for (uint256 i = 1; i <= 300; i += 13) {
-            _advanceTo(10_000 + i);
-            _persist();
-            _persist();
+            advanceClockModel(10_000 + i);
+            checkpointAndCompare();
+            checkpointAndCompare();
         }
-        _advanceTo(10_350);
-        _swap(-30); // First ended observation, before the late finalizer.
+        advanceClockModel(10_350);
+        swapToTick(-30); // First ended observation, before the late finalizer.
         require(hook.stopped() && hook.qualifyingSeconds() == single && single == 300);
         vault.finalizeExpiry();
-        _persist();
+        checkpointAndCompare();
         require(hook.lastCheckpoint() == vault.scheduledEnd());
     }
 
+    /// @notice Read before activation and after a 120-second stop and verify only the active interval earns.
     function testNoServiceBeforeActivationAndStopAt120() public {
-        _ready();
-        _advanceTo(10_050);
-        _swap(7);
-        _persist();
+        prepareFundedFixture();
+        advanceClockModel(10_050);
+        swapToTick(7);
+        checkpointAndCompare();
         require(hook.start() == 0 && hook.lastCheckpoint() == 0);
         (, uint8 flags) = hook.qualification();
         require(flags & hook.NOT_ACTIVATED() != 0);
         vault.activate(h);
         require(hook.start() == 10_050 && hook.lastCheckpoint() == 10_050 && hook.qualifyingSeconds() == 0);
-        _advanceTo(10_170);
+        advanceClockModel(10_170);
         faults.mockCallRevert(address(core), "", hex"bad0");
         vault.terminate();
-        _flags(hook.STOPPED());
+        assertQualificationFlags(hook.STOPPED());
         faults.clearMockedCalls();
-        _advanceTo(10_200);
-        _swap(120);
+        advanceClockModel(10_200);
+        swapToTick(120);
         vault.terminate();
         vault.exitLiquidity();
         vault.withdrawIdle();
-        _advanceTo(10_380);
-        _persist();
+        advanceClockModel(10_380);
+        checkpointAndCompare();
         require(hook.lastCheckpoint() == 10_170 && expected == 120 && hook.positionId() == 0);
     }
 
-    function _remove(uint128 amount) private {
+    /// @notice Remove the specified raw liquidity using the current position and execution bounds.
+    function removeAsManager(uint128 amount) private {
         bytes32 id = vault.positionId();
-        AgreementVault.Bounds memory bounds = _bounds();
+        AgreementVault.Bounds memory bounds = adjustmentBounds();
         vm.prank(MANAGER);
         vault.remove(id, amount, bounds);
     }
 
-    function _add(uint128 amount) private {
+    /// @notice Increase seed-range liquidity as the named manager under current execution bounds.
+    function addAsManager(uint128 amount) private {
         bytes32 id = vault.positionId();
         int24 lower = vault.positionLower();
         int24 upper = vault.positionUpper();
-        AgreementVault.Bounds memory bounds = _bounds();
+        AgreementVault.Bounds memory bounds = adjustmentBounds();
         vm.prank(MANAGER);
         vault.add(id, lower, upper, amount, bounds);
     }
 
-    function _rerange(int24 lower, int24 upper) private {
+    /// @notice Replace the active range using the named manager and accepted position identity.
+    function rerangeAsManager(int24 lower, int24 upper) private {
         bytes32 id = vault.positionId();
-        AgreementVault.Bounds memory bounds = _bounds();
+        AgreementVault.Bounds memory bounds = adjustmentBounds();
         vm.prank(MANAGER);
         vault.rerange(id, lower, upper, SEED, bounds);
     }
 
+    /// @notice Remove all liquidity after service, reopen on fresh salt and check that the old interval was credited.
     function testFullRemovalPreservesOldIntervalAndReopeningUsesFreshSalt() public {
-        _active();
+        activateFixture();
         bytes32 oldId = vault.positionId();
-        _advanceTo(10_100);
-        _remove(SEED);
+        advanceClockModel(10_100);
+        removeAsManager(SEED);
         require(
-            vault.positionId() == 0 && hook.positionId() == 0 && _liquidity(address(vault), bytes32(uint256(1))) == 0
+            vault.positionId() == 0 && hook.positionId() == 0
+                && seedRangeLiquidity(address(vault), bytes32(uint256(1))) == 0
         );
-        _flags(
+        assertQualificationFlags(
             hook.NO_MATCHING_POSITION() | hook.BELOW_MINIMUM() | hook.BAND_NOT_COVERED() | hook.RANGE_NOT_PERMITTED()
                 | hook.TICK_OUTSIDE()
         );
         uint256 credited = hook.qualifyingSeconds();
         if (credited != expected) revert OldIntervalLost(expected, credited);
         require(expected == 100);
-        _advanceTo(10_150);
-        _add(SEED);
+        advanceClockModel(10_150);
+        addAsManager(SEED);
         require(
             hook.positionId() == vault.positionId() && hook.positionId() != oldId
                 && hook.positionSalt() == bytes32(uint256(2))
         );
-        _advanceTo(10_180);
-        _remove(1);
-        _flags(hook.BELOW_MINIMUM());
-        _advanceTo(10_210);
-        _add(1);
-        _flags(0);
-        _advanceTo(10_340);
+        advanceClockModel(10_180);
+        removeAsManager(1);
+        assertQualificationFlags(hook.BELOW_MINIMUM());
+        advanceClockModel(10_210);
+        addAsManager(1);
+        assertQualificationFlags(0);
+        advanceClockModel(10_340);
         vault.finalizeExpiry();
         require(hook.qualifyingSeconds() == expected && expected == 220);
     }
 
+    /// @notice Leave the attributed identity empty while other core liquidity exists and require zero service.
     function testUnrelatedCorePositionContributesZeroWhileEmpty() public {
-        _active();
-        _advanceTo(10_040);
-        _remove(SEED);
+        activateFixture();
+        advanceClockModel(10_040);
+        removeAsManager(SEED);
         PoolKey memory other = key;
         other.hooks = IHooks(address(0));
         core.initialize(other, 1 << 96);
@@ -196,34 +210,36 @@ contract ServiceClockTest is ActiveFixture {
         otherOwner.add(-120, 120, SEED);
         (uint128 otherL,,) = core.getPositionInfo(other.toId(), address(otherOwner), -120, 120, bytes32(0));
         require(otherL == SEED && hook.positionId() == 0 && hook.observedLiquidity() == 0);
-        _advanceTo(10_350);
+        advanceClockModel(10_350);
         vault.finalizeExpiry();
         require(hook.qualifyingSeconds() == expected && expected == 40);
     }
 
+    /// @notice Cross both extended range edges at controlled times and verify half-open and zero-time transitions.
     function testExtendedRangeStoredTickEdgesAndSameTimestampChanges() public {
-        _active();
-        _advanceTo(10_030);
-        _swap(120);
-        _flags(hook.TICK_OUTSIDE());
-        _rerange(-180, 180);
-        _flags(0);
+        activateFixture();
+        advanceClockModel(10_030);
+        swapToTick(120);
+        assertQualificationFlags(hook.TICK_OUTSIDE());
+        rerangeAsManager(-180, 180);
+        assertQualificationFlags(0);
         require(hook.observedTick() == 120 && hook.qualifyingSeconds() == 30);
-        _advanceTo(10_060);
-        _swap(180);
-        _flags(hook.TICK_OUTSIDE());
-        _advanceTo(10_090);
-        _swap(-181);
-        _swap(-180);
-        _flags(0);
+        advanceClockModel(10_060);
+        swapToTick(180);
+        assertQualificationFlags(hook.TICK_OUTSIDE());
+        advanceClockModel(10_090);
+        swapToTick(-181);
+        swapToTick(-180);
+        assertQualificationFlags(0);
         require(hook.observedTick() == -180 && hook.qualifyingSeconds() == 60);
-        _advanceTo(10_120);
+        advanceClockModel(10_120);
         vault.terminate();
         require(hook.qualifyingSeconds() == expected && expected == 90);
     }
 
+    /// @notice Try direct clock writes and repeat initialization and require the vault and lifecycle guards.
     function testClockWritesAuthenticateVaultAndInitializationIsSingleUse() public {
-        _active();
+        activateFixture();
         vm.expectRevert(ServiceHook.NotVault.selector);
         hook.stopClock();
         vm.expectRevert(ServiceHook.NotVault.selector);
@@ -235,40 +251,41 @@ contract ServiceClockTest is ActiveFixture {
         vm.expectRevert(ServiceHook.InvalidClockState.selector);
         vm.prank(address(vault));
         hook.initializeClock(-120, 120, bytes32(uint256(1)), SEED, 99999);
-        _advanceTo(10_301);
-        _persist();
+        advanceClockModel(10_301);
+        checkpointAndCompare();
     }
 
+    /// @notice Generate a bounded sequence of price and liquidity changes and compare the independent interval sum.
     function testFuzzReconcileSequence(uint256 seed) public {
-        _active();
+        activateFixture();
         // Fixture inventory for feasible movements in either direction across many successive swaps.
-        _give(a, address(vault), 2 * PRINCIPAL);
-        _give(b, address(vault), 2 * PRINCIPAL);
+        giveTokens(a, address(vault), 2 * PRINCIPAL);
+        giveTokens(b, address(vault), 2 * PRINCIPAL);
         uint256 time = vault.start();
         for (uint256 i; i < 24; ++i) {
             seed = uint256(keccak256(abi.encode(seed, i)));
             time += seed % 13;
-            _advanceTo(time);
+            advanceClockModel(time);
             uint256 op = (seed >> 16) % 6;
             uint128 l = vault.positionLiquidity();
             if (op == 0 || op == 1) {
                 int24 target = int24(int256((seed >> 32) % 341) - 170);
-                _swap(target);
-                _persist();
+                swapToTick(target);
+                checkpointAndCompare();
             } else if (op == 2 || time < (vault.lastAdjustment() == 0 ? vault.start() : vault.lastAdjustment()) + 30) {
-                _persist();
+                checkpointAndCompare();
             } else if (l == 0) {
-                _add(SEED);
+                addAsManager(SEED);
             } else if (op == 3) {
-                _remove(l);
+                removeAsManager(l);
             } else if (op == 4) {
-                if (l < SEED) _add(SEED - l);
-                else _remove(1);
+                if (l < SEED) addAsManager(SEED - l);
+                else removeAsManager(1);
             } else {
                 int24 edge = vault.positionUpper() == 120 ? int24(180) : int24(120);
-                _rerange(-edge, edge);
+                rerangeAsManager(-edge, edge);
             }
-            _checkProjection();
+            assertClockProjection();
             require(
                 hook.qualifyingSeconds() == expected && hook.positionId() == vault.positionId(), "post-action state"
             );
@@ -276,11 +293,11 @@ contract ServiceClockTest is ActiveFixture {
         if (seed % 2 == 0) {
             vault.terminate();
         } else {
-            _advanceTo(vault.scheduledEnd() + 19);
+            advanceClockModel(vault.scheduledEnd() + 19);
             vault.finalizeExpiry();
         }
         require(hook.qualifyingSeconds() == expected, "close");
-        _advanceTo(vault.scheduledEnd() + 60);
-        _persist();
+        advanceClockModel(vault.scheduledEnd() + 60);
+        checkpointAndCompare();
     }
 }

@@ -50,6 +50,7 @@ type Report = {
   limitations: string[]
 }
 
+/** Compare the downloaded statement's identity and quantities with the displayed contract reads. */
 function reconcile(r: Report, s: Snapshot) {
   if (r.schema !== 'unison.c1.statement.v1' || r.buildId !== s.m.buildId)
     throw Error('Unsupported statement schema or build.')
@@ -101,11 +102,13 @@ function reconcile(r: Report, s: Snapshot) {
     throw Error('Event calculation differs from the displayed block-pinned contract reads.')
 }
 
+/** Render event-derived settlement evidence and enable export after reconciliation. */
 export function AgreementStatement({ s, stale }: { s: Snapshot; stale: boolean }) {
   const [report, setReport] = useState<Report>()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const inFlight = useRef(false)
+  /** Fetch the statement for the displayed block and validate it before enabling download. */
   async function prepare() {
     if (stale || inFlight.current) return
     inFlight.current = true
@@ -133,6 +136,7 @@ export function AgreementStatement({ s, stale }: { s: Snapshot; stale: boolean }
       setLoading(false)
     }
   }
+  /** Export the reconciled statement as JSON from the current browser session. */
   function download() {
     if (!report || stale) return
     const url = URL.createObjectURL(
@@ -144,6 +148,7 @@ export function AgreementStatement({ s, stale }: { s: Snapshot; stale: boolean }
     a.click()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
+  /** Format compensation in token B's actual decimal denomination. */
   const b = (n: string) => formatUnits(BigInt(n), s.tokenB.decimals) + ' B'
   const activation = report?.events.find((e) => e.name === 'Activated')?.args
   const opening = report?.events.find((e) => e.name === 'OpeningFixed')?.args
@@ -204,6 +209,7 @@ export function AgreementStatement({ s, stale }: { s: Snapshot; stale: boolean }
           <h3>Token movements</h3>
           {report.movements.map((m, i) => {
             const t = report.tokens.find((t) => t.address === m.token)!
+            /** Format the event amount using its associated token's decimals. */
             const fmt = (n: string) => formatUnits(BigInt(n), Number(t.decimals))
             const ev = report.events[Number(m.eventIndex)]
             return (
