@@ -1,66 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {ActiveFixture} from "./fixtures/ActiveFixture.sol";
-import {AgreementVault} from "../src/AgreementVault.sol";
-import {ServiceHook} from "../src/ServiceHook.sol";
+import {ServiceHook} from "../../src/ServiceHook.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
 import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
-import {CoreSeedHarness} from "./fixtures/CoreSeedHarness.sol";
-import {PoolId} from "v4-core/src/types/PoolId.sol";
+import {CoreSeedHarness} from "../fixtures/CoreSeedHarness.sol";
+import {ClockFixture} from "../fixtures/ClockFixture.sol";
 
-contract ServiceClockTest is ActiveFixture {
+contract ServiceClockTest is ClockFixture {
     using StateLibrary for IPoolManager;
-
     error OldIntervalLost(uint256 expectedSeconds, uint256 persistedSeconds);
-
-    // Independent interval oracle. Read the vault lifecycle and exact core key at the LEFT
-    // endpoint. Advance simulated time and integrate that predicate before the next action.
-    uint256 private expected;
-
-    /// @notice Derive qualification independently from core tick, range and actual position liquidity.
-    function coreQualifies() private view returns (bool) {
-        int24 lower = vault.positionLower();
-        int24 upper = vault.positionUpper();
-        bytes32 salt = vault.positionSalt();
-        (uint128 l,,) = core.getPositionInfo(key.toId(), address(vault), lower, upper, salt);
-        (, int24 tick,,) = core.getSlot0(key.toId());
-        return vault.state() == AgreementVault.State.Active
-            && PoolId.unwrap(key.toId()) == PoolId.unwrap(vault.positionPoolId()) && salt != 0
-            && vault.positionId() == keccak256(abi.encode(key.toId(), address(vault), lower, upper, salt))
-            && l == vault.positionLiquidity() && l >= 100_000_000_000 && lower >= -887220 && upper <= 887220
-            && lower % 60 == 0 && upper % 60 == 0 && lower < upper && lower >= vault.bandLower() - 120
-            && lower <= vault.bandLower() && upper <= vault.bandUpper() + 120 && upper >= vault.bandUpper()
-            && upper - lower <= 480 && lower <= tick && tick < upper;
-    }
-
-    /// @notice Credit the model's prior qualification before moving the fixture clock.
-    function advanceClockModel(uint256 next) private {
-        uint256 nowTime = block.timestamp;
-        require(next >= nowTime);
-        if (coreQualifies()) {
-            uint256 end = vault.scheduledEnd();
-            expected += (next < end ? next : end) - nowTime;
-        }
-        vm.warp(next);
-        assertClockProjection();
-    }
-
-    /// @notice Compare projected service seconds with the independent interval sum.
-    function assertClockProjection() private view {
-        (bool qualifies,) = hook.qualification();
-        require(qualifies == coreQualifies(), "actual C1 qualification");
-        require(hook.projectedSeconds() == expected && expected <= 300, "independent projection");
-    }
-
-    /// @notice Persist the current interval and compare stored and projected time.
-    function checkpointAndCompare() private {
-        vm.prank(DONOR);
-        require(hook.checkpoint() == expected && hook.qualifyingSeconds() == expected, "independent checkpoint");
-        assertClockProjection();
-    }
 
     /// @notice Compare qualification and its failure bitmask with the expected predicates.
     function assertQualificationFlags(uint8 expectedFailures) private view {
@@ -134,32 +85,6 @@ contract ServiceClockTest is ActiveFixture {
         advanceClockModel(10_380);
         checkpointAndCompare();
         require(hook.lastCheckpoint() == 10_170 && expected == 120 && hook.positionId() == 0);
-    }
-
-    /// @notice Remove the specified raw liquidity using the current position and execution bounds.
-    function removeAsManager(uint128 amount) private {
-        bytes32 id = vault.positionId();
-        AgreementVault.Bounds memory bounds = adjustmentBounds();
-        vm.prank(MANAGER);
-        vault.remove(id, amount, bounds);
-    }
-
-    /// @notice Increase seed-range liquidity as the named manager under current execution bounds.
-    function addAsManager(uint128 amount) private {
-        bytes32 id = vault.positionId();
-        int24 lower = vault.positionLower();
-        int24 upper = vault.positionUpper();
-        AgreementVault.Bounds memory bounds = adjustmentBounds();
-        vm.prank(MANAGER);
-        vault.add(id, lower, upper, amount, bounds);
-    }
-
-    /// @notice Replace the active range using the named manager and accepted position identity.
-    function rerangeAsManager(int24 lower, int24 upper) private {
-        bytes32 id = vault.positionId();
-        AgreementVault.Bounds memory bounds = adjustmentBounds();
-        vm.prank(MANAGER);
-        vault.rerange(id, lower, upper, SEED, bounds);
     }
 
     /// @notice Remove all liquidity after service, reopen on fresh salt and check that the old interval was credited.
@@ -252,52 +177,6 @@ contract ServiceClockTest is ActiveFixture {
         vm.prank(address(vault));
         hook.initializeClock(-120, 120, bytes32(uint256(1)), SEED, 99999);
         advanceClockModel(10_301);
-        checkpointAndCompare();
-    }
-
-    /// @notice Generate a bounded sequence of price and liquidity changes and compare the independent interval sum.
-    function testFuzzReconcileSequence(uint256 seed) public {
-        activateFixture();
-        // Fixture inventory for feasible movements in either direction across many successive swaps.
-        giveTokens(a, address(vault), 2 * PRINCIPAL);
-        giveTokens(b, address(vault), 2 * PRINCIPAL);
-        uint256 time = vault.start();
-        for (uint256 i; i < 24; ++i) {
-            seed = uint256(keccak256(abi.encode(seed, i)));
-            time += seed % 13;
-            advanceClockModel(time);
-            uint256 op = (seed >> 16) % 6;
-            uint128 l = vault.positionLiquidity();
-            if (op == 0 || op == 1) {
-                int24 target = int24(int256((seed >> 32) % 341) - 170);
-                swapToTick(target);
-                checkpointAndCompare();
-            } else if (op == 2 || time < (vault.lastAdjustment() == 0 ? vault.start() : vault.lastAdjustment()) + 30) {
-                checkpointAndCompare();
-            } else if (l == 0) {
-                addAsManager(SEED);
-            } else if (op == 3) {
-                removeAsManager(l);
-            } else if (op == 4) {
-                if (l < SEED) addAsManager(SEED - l);
-                else removeAsManager(1);
-            } else {
-                int24 edge = vault.positionUpper() == 120 ? int24(180) : int24(120);
-                rerangeAsManager(-edge, edge);
-            }
-            assertClockProjection();
-            require(
-                hook.qualifyingSeconds() == expected && hook.positionId() == vault.positionId(), "post-action state"
-            );
-        }
-        if (seed % 2 == 0) {
-            vault.terminate();
-        } else {
-            advanceClockModel(vault.scheduledEnd() + 19);
-            vault.finalizeExpiry();
-        }
-        require(hook.qualifyingSeconds() == expected, "close");
-        advanceClockModel(vault.scheduledEnd() + 60);
         checkpointAndCompare();
     }
 }

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {AgreementVault} from "../src/AgreementVault.sol";
-import {ExactToken} from "../src/ExactToken.sol";
-import {CustodyToken} from "./fixtures/CustodyFixture.sol";
-import {ActiveFixture} from "./fixtures/ActiveFixture.sol";
+import {AgreementVault} from "../../src/AgreementVault.sol";
+import {ExactToken} from "../../src/ExactToken.sol";
+import {CustodyToken} from "../fixtures/CustodyFixture.sol";
+import {ActiveFixture} from "../fixtures/ActiveFixture.sol";
 
 contract CloseoutBoundaryTest is ActiveFixture {
     error ExpiredPositionChanged(uint128 expectedLiquidity, uint128 actualLiquidity);

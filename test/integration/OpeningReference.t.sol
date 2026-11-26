@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {AgreementVault} from "../src/AgreementVault.sol";
-import {IOpeningReferenceAdapter} from "../src/IOpeningReferenceAdapter.sol";
-import {OpeningBand} from "../src/OpeningBand.sol";
-import {CustodyFixture} from "./fixtures/CustodyFixture.sol";
-import {MockOpeningReferenceAdapter} from "./fixtures/MockOpeningReferenceAdapter.sol";
+import {AgreementVault} from "../../src/AgreementVault.sol";
+import {IOpeningReferenceAdapter} from "../../src/IOpeningReferenceAdapter.sol";
+import {OpeningBand} from "../../src/OpeningBand.sol";
+import {CustodyFixture} from "../fixtures/CustodyFixture.sol";
+import {MockOpeningReferenceAdapter} from "../fixtures/MockOpeningReferenceAdapter.sol";
 
 interface VmReference {
     /// @notice Return fixture data for the selected contract read.
@@ -71,7 +71,7 @@ contract OpeningReferenceTest is CustodyFixture {
     }
 
     /// @notice Exercise the last fresh and first stale timestamps against the fixed maximum age.
-    function testFreshnessBoundaries() public {
+    function testOpeningReferenceAcceptsLastFreshSecondAndRejectsStaleData() public {
         IOpeningReferenceAdapter.Observation memory sample = configureFixture();
         acceptTerms();
         for (uint256 age = 59; age <= 61; ++age) {

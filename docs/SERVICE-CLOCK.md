@@ -27,7 +27,7 @@ The clock follows the pre-change checkpoint and after-swap observation establish
 
 ## Local reconciliation
 
-The independent accumulator reads the exact core position, pool tick, vault identity, band and lifecycle at the left endpoint of each interval. It applies the C1 predicates separately and sums the qualifying overlap before time advances. Each sequence compares this total with the hook projection, persisted checkpoints and final close. [Service clock tests](../test/ServiceClock.t.sol)
+The independent accumulator reads the exact core position, pool tick, vault identity, band and lifecycle at the left endpoint of each interval. It applies the C1 predicates separately and sums the qualifying overlap before time advances. Each sequence compares this total with the hook projection, persisted checkpoints and final close. [Service clock tests](../test/integration/ServiceClock.t.sol)
 
 | Fixture, in elapsed seconds | Qualifying intervals | Final Q |
 | --- | --- | ---: |
@@ -39,9 +39,9 @@ The independent accumulator reads the exact core position, pool tick, vault iden
 
 An unrelated position with the full 100,000,000,000 L in another real pool added zero during [40, 300) while the agreement was empty. Final Q stayed at 40.
 
-The second rerange leg tested a one-unit B shortfall. The transaction rolled back the checkpoint to time 10,000 and persisted Q to zero, while its as-of-now projection remained 30. Position, balances, salt, consumed grants and cooldown reverted with it. A same-timestamp retry with the missing unit credited the original 30 seconds once. The custody-lock transfer probe also exercised a permissionless checkpoint during a live add. [Manager tests](../test/ManagerOperations.t.sol)
+The second rerange leg tested a one-unit B shortfall. The transaction rolled back the checkpoint to time 10,000 and persisted Q to zero, while its as-of-now projection remained 30. Position, balances, salt, consumed grants and cooldown reverted with it. A same-timestamp retry with the missing unit credited the original 30 seconds once. The custody-lock transfer probe also exercised a permissionless checkpoint during a live add. [Manager tests](../test/integration/ManagerOperations.t.sol)
 
-The principal-recovery fixture blocked every adapter and escrow call and the escrow-to-treasury B transfer route. Treasury terminated at elapsed 10, removed real liquidity and withdrew principal and LP fees. Total treasury receipts including idle assets were 2,100,346,049 A and 1,900,054,977 B base units. Subsequent empty exits, withdrawals and termination left Q at 10. The exact-expiry fixture removed its live position before finalization with Q frozen at 300. The budget stayed separately held in M3. M4 added [earned reserves, claims, terminal refunds and the failure regression](COMPENSATION.md). [Lifecycle tests](../test/AgreementLifecycle.t.sol)
+The principal-recovery fixture blocked every adapter and escrow call and the escrow-to-treasury B transfer route. Treasury terminated at elapsed 10, removed real liquidity and withdrew principal and LP fees. Total treasury receipts including idle assets were 2,100,346,049 A and 1,900,054,977 B base units. Subsequent empty exits, withdrawals and termination left Q at 10. The exact-expiry fixture removed its live position before finalization with Q frozen at 300. The budget stayed separately held in M3. M4 added [earned reserves, claims, terminal refunds and the failure regression](COMPENSATION.md). [Lifecycle tests](../test/integration/AgreementLifecycle.t.sol)
 
 ## Size and replay
 

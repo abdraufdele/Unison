@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {AgreementVault} from "../src/AgreementVault.sol";
-import {CompensationEscrow} from "../src/CompensationEscrow.sol";
-import {ExactToken} from "../src/ExactToken.sol";
-import {CustodyFixture, CustodyToken} from "./fixtures/CustodyFixture.sol";
-import {Vm} from "./AgreementVaultAcceptance.t.sol";
+import {AgreementVault} from "../../src/AgreementVault.sol";
+import {CompensationEscrow} from "../../src/CompensationEscrow.sol";
+import {ExactToken} from "../../src/ExactToken.sol";
+import {CustodyFixture, CustodyToken} from "../fixtures/CustodyFixture.sol";
+import {Vm} from "../helpers/Vm.sol";
 
 contract AgreementVaultCancellationTest is CustodyFixture {
     /// @notice Cancel a partially accepted draft with gifts and verify each asset's recovery path.

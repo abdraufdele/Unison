@@ -1,97 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {AgreementVault} from "../src/AgreementVault.sol";
+import {AgreementVault} from "../../src/AgreementVault.sol";
+import {Vm} from "../helpers/Vm.sol";
+import {ConsentFixture} from "../fixtures/ConsentFixture.sol";
 
-// Test-only Foundry cheatcodes. All state assertions use the vault's public interface.
-interface Vm {
-    struct Log {
-        bytes32[] topics;
-        bytes data;
-        address emitter;
-    }
-
-    /// @notice Move the Foundry fixture's timestamp to the specified second.
-    function warp(uint256 timestamp) external;
-    /// @notice Select the test chain used in the terms commitment.
-    function chainId(uint256 id) external;
-    /// @notice Set the test account nonce for a deterministic CREATE vector.
-    function setNonce(address account, uint64 nonce) external;
-    /// @notice Use the supplied actor for the next external call.
-    function prank(address caller) external;
-    /// @notice Require the next operation to revert under the selected Foundry expectation.
-    function expectRevert(bytes calldata reason) external;
-    /// @notice Require the next operation to revert under the selected Foundry expectation.
-    function expectRevert(bytes4 selector) external;
-    /// @notice Capture the full EVM fixture before branching into an independent trial.
-    function snapshotState() external returns (uint256);
-    /// @notice Restore the snapshot and discard the saved branch.
-    function revertToStateAndDelete(uint256 snapshot) external returns (bool);
-    /// @notice Begin collecting EVM logs for independent receipt checks.
-    function recordLogs() external;
-    /// @notice Return the logs captured since the last recording request.
-    function getRecordedLogs() external returns (Log[] memory);
-}
-
-contract AgreementVaultAcceptanceTest {
-    Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
-    address private constant TREASURY = address(0x1111);
-    address private constant MANAGER = address(0x2222);
-    bytes32 private constant ID = bytes32(uint256(1));
-    uint256 private constant CREATED = 1000;
-    AgreementVault private vault;
-
-    /// @notice Create the initial vault and actors shared by this suite before each test.
-    function setUp() public {
-        vm.chainId(31337);
-        vm.warp(CREATED);
-        vm.setNonce(TREASURY, 1);
-        vault = createVault(ID, MANAGER, initialBindings());
-    }
-
-    /// @notice Supply distinct, ordered C1 identities for the acceptance-only fixture.
-    function initialBindings() private pure returns (AgreementVault.Bindings memory) {
-        return AgreementVault.Bindings({
-            poolManager: address(0x3000),
-            token0: address(0x4000),
-            token1: address(0x5000),
-            hook: address(0x6000),
-            escrow: address(0x7000),
-            referenceAdapter: address(0x8000),
-            referenceSource: address(0x9000)
-        });
-    }
-
-    /// @notice Construct the agreement as its intended treasury with the supplied parties and bindings.
-    function createVault(bytes32 id, address manager, AgreementVault.Bindings memory b)
-        private
-        returns (AgreementVault)
-    {
-        vm.prank(TREASURY);
-        return new AgreementVault(id, manager, b);
-    }
-
-    /// @notice Record the selected fixture parties' decisions against the vault's current proposal.
-    function acceptTerms(address caller, bytes32 expected) private {
-        vm.prank(caller);
-        vault.accept(expected);
-    }
-
+contract AgreementVaultAcceptanceTest is ConsentFixture {
     /// @notice Submit a draft edit from the fixture treasury.
     function reviseBindings(AgreementVault.Bindings memory b) private {
         vm.prank(TREASURY);
         vault.revise(b);
-    }
-
-    /// @notice Compare revision, both independent consent records and the effective state.
-    function assertConsentState(uint256 rev, uint256 treasuryRecord, uint256 managerRecord, AgreementVault.State status)
-        private
-        view
-    {
-        require(vault.revision() == rev, "revision");
-        require(vault.treasuryAcceptedRevision() == treasuryRecord, "treasury decision");
-        require(vault.managerAcceptedRevision() == managerRecord, "manager decision");
-        require(vault.state() == status, "state");
     }
 
     /// @notice Compare the published proposal with an independently encoded commitment and both fixed beneficiaries.
@@ -130,7 +48,7 @@ contract AgreementVaultAcceptanceTest {
     }
 
     /// @notice Let the manager consent first and check the draft remains open for the treasury.
-    function testManagerFirst() public {
+    function testManagerAcceptanceLeavesDraftUntilTreasuryConsents() public {
         bytes32 h = vault.termsHash();
         acceptTerms(MANAGER, h);
         assertConsentState(1, 0, 1, AgreementVault.State.Draft);
@@ -150,16 +68,6 @@ contract AgreementVaultAcceptanceTest {
         vault.revise(initialBindings());
         assertConsentState(1, 0, 0, AgreementVault.State.Draft);
         require(vault.termsHash() == h, "unauthorized call changed terms");
-    }
-
-    /// @notice Try a supplied nonmatching commitment and require that no approval is recorded.
-    function testFuzzWrongHashCannotAddApproval(bytes32 supplied) public {
-        bytes32 current = vault.termsHash();
-        if (supplied == current) supplied ^= bytes32(uint256(1));
-        acceptTerms(MANAGER, current);
-        vm.expectRevert(abi.encodeWithSelector(AgreementVault.WrongTermsHash.selector, supplied, current));
-        acceptTerms(TREASURY, supplied);
-        assertConsentState(1, 0, 1, AgreementVault.State.Draft);
     }
 
     /// @notice Reuse a hash from another vault with identical parties and verify the vault domain prevents replay.

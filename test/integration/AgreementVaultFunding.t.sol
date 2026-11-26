@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {AgreementVault} from "../src/AgreementVault.sol";
-import {CompensationEscrow} from "../src/CompensationEscrow.sol";
-import {ExactToken} from "../src/ExactToken.sol";
-import {CustodyFixture, CustodyToken} from "./fixtures/CustodyFixture.sol";
-import {Vm} from "./AgreementVaultAcceptance.t.sol";
+import {AgreementVault} from "../../src/AgreementVault.sol";
+import {CompensationEscrow} from "../../src/CompensationEscrow.sol";
+import {ExactToken} from "../../src/ExactToken.sol";
+import {CustodyFixture, CustodyToken} from "../fixtures/CustodyFixture.sol";
+import {Vm} from "../helpers/Vm.sol";
 
 /// @dev Mimics the escrow's read surface, but has no settlement implementation.
 contract EscrowLookalike {
@@ -16,7 +16,7 @@ contract EscrowLookalike {
     uint256 public fundedBudget;
     uint256 public refunded;
 
-    /// @notice Bind the supplied fixture dependencies for subsequent calls.
+    /// @notice Imitate the escrow getters to challenge funding's canonical runtime check.
     constructor(address v, address token, address treasury, address manager) {
         (vault, paymentToken, treasuryRecipient, managerRecipient) = (v, token, treasury, manager);
     }

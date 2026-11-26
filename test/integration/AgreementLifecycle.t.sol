@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {AgreementVault} from "../src/AgreementVault.sol";
-import {CompensationEscrow} from "../src/CompensationEscrow.sol";
-import {ExactToken} from "../src/ExactToken.sol";
-import {Operation, ServiceHook} from "../src/ServiceHook.sol";
-import {Vm} from "./AgreementVaultAcceptance.t.sol";
-import {CustodyToken} from "./fixtures/CustodyFixture.sol";
-import {CoreSeedHarness} from "./fixtures/CoreSeedHarness.sol";
+import {AgreementVault} from "../../src/AgreementVault.sol";
+import {CompensationEscrow} from "../../src/CompensationEscrow.sol";
+import {ExactToken} from "../../src/ExactToken.sol";
+import {Operation, ServiceHook} from "../../src/ServiceHook.sol";
+import {Vm} from "../helpers/Vm.sol";
+import {CustodyToken} from "../fixtures/CustodyFixture.sol";
+import {CoreSeedHarness} from "../fixtures/CoreSeedHarness.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
@@ -20,7 +20,7 @@ import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {PoolId} from "v4-core/src/types/PoolId.sol";
 import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 
-import {ActiveFixture} from "./fixtures/ActiveFixture.sol";
+import {ActiveFixture} from "../fixtures/ActiveFixture.sol";
 
 contract AgreementLifecycleTest is ActiveFixture {
     using StateLibrary for IPoolManager;
@@ -211,25 +211,25 @@ contract AgreementLifecycleTest is ActiveFixture {
         vm.prank(address(core));
         hook.beforeAddLiquidity(address(vault), key, params, abi.encode(Operation.Rerange));
         params.tickLower = -60;
-        invalidAddParams(params);
+        expectInvalidAddContext(params);
         params.tickLower = -120;
         params.tickUpper = 180;
-        invalidAddParams(params);
+        expectInvalidAddContext(params);
         params.tickUpper = 120;
         params.salt = 0;
-        invalidAddParams(params);
+        expectInvalidAddContext(params);
         params.salt = bytes32(uint256(1));
         params.liquidityDelta--;
-        invalidAddParams(params);
+        expectInvalidAddContext(params);
         params.liquidityDelta = -int256(uint256(SEED));
-        invalidAddParams(params);
+        expectInvalidAddContext(params);
         params.liquidityDelta = int256(uint256(SEED));
         vm.prank(address(core));
         require(
             hook.beforeAddLiquidity(address(vault), key, params, abi.encode(Operation.Seed))
                 == IHooks.beforeAddLiquidity.selector
         );
-        invalidAddParams(params);
+        expectInvalidAddContext(params);
         IPoolManager.SwapParams memory swap = IPoolManager.SwapParams(true, -1, 1 << 96);
         vm.expectRevert(ServiceHook.WrongCoreOrPool.selector);
         hook.afterSwap(DONOR, key, swap, BalanceDelta.wrap(0), "");
@@ -238,8 +238,8 @@ contract AgreementLifecycleTest is ActiveFixture {
         hook.afterSwap(DONOR, other, swap, BalanceDelta.wrap(0), "");
     }
 
-    /// @notice Construct add-leg parameters for testing callback admission checks.
-    function invalidAddParams(IPoolManager.ModifyLiquidityParams memory params) private {
+    /// @notice Call the hook as core without the matching add grant and require InvalidAddContext.
+    function expectInvalidAddContext(IPoolManager.ModifyLiquidityParams memory params) private {
         vm.expectRevert(ServiceHook.InvalidAddContext.selector);
         vm.prank(address(core));
         hook.beforeAddLiquidity(address(vault), key, params, abi.encode(Operation.Seed));

@@ -17,7 +17,7 @@ mkdir -p .local/m5
 run=$(mktemp -d "$PWD/.local/m5/$1-XXXXXX")
 printf 'Evidence in %s\n' "$run"
 compiler=(--offline --use "$HOME/.svm/0.8.26/solc-0.8.26")
-selection=(--match-path test/CloseoutBoundary.t.sol --match-test "$name")
+selection=(--match-path test/integration/CloseoutBoundary.t.sol --match-test "$name")
 forge test "${compiler[@]}" "${selection[@]}" -vv > "$run/baseline.log" 2>&1
 grep -F "[PASS] $name()" "$run/baseline.log"
 cp -R src test foundry.toml "$run/"
@@ -39,7 +39,7 @@ else:
 assert source.count(old) == 1
 vault.write_text(source.replace(old, new))
 PY
-forge build --root . "${compiler[@]}" test/CloseoutBoundary.t.sol > build.log 2>&1
+forge build --root . "${compiler[@]}" test/integration/CloseoutBoundary.t.sol > build.log 2>&1
 grep -F 'Compiler run successful' build.log
 status=0
 forge test --root . "${compiler[@]}" "${selection[@]}" -vvvv > mutant.log 2>&1 || status=$?

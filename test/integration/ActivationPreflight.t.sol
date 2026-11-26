@@ -11,12 +11,12 @@ import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {PoolId} from "v4-core/src/types/PoolId.sol";
-import {AgreementVault} from "../src/AgreementVault.sol";
-import {SeedPool} from "../src/SeedPool.sol";
-import {IOpeningReferenceAdapter} from "../src/IOpeningReferenceAdapter.sol";
-import {CustodyFixture} from "./fixtures/CustodyFixture.sol";
-import {MockOpeningReferenceAdapter} from "./fixtures/MockOpeningReferenceAdapter.sol";
-import {TestOnlySeedHook, CoreSeedHarness} from "./fixtures/CoreSeedHarness.sol";
+import {AgreementVault} from "../../src/AgreementVault.sol";
+import {SeedPool} from "../../src/SeedPool.sol";
+import {IOpeningReferenceAdapter} from "../../src/IOpeningReferenceAdapter.sol";
+import {CustodyFixture} from "../fixtures/CustodyFixture.sol";
+import {MockOpeningReferenceAdapter} from "../fixtures/MockOpeningReferenceAdapter.sol";
+import {TestOnlySeedHook, CoreSeedHarness} from "../fixtures/CoreSeedHarness.sol";
 
 interface PreflightVm {
     /// @notice Install fixture runtime code at the requested test address.

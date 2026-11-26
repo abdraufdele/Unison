@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {AgreementVault} from "../src/AgreementVault.sol";
-import {CompensationEscrow} from "../src/CompensationEscrow.sol";
-import {CustodyLock, ExactToken} from "../src/ExactToken.sol";
-import {ServiceHook} from "../src/ServiceHook.sol";
-import {ActiveFixture} from "./fixtures/ActiveFixture.sol";
-import {CustodyToken} from "./fixtures/CustodyFixture.sol";
+import {AgreementVault} from "../../src/AgreementVault.sol";
+import {CompensationEscrow} from "../../src/CompensationEscrow.sol";
+import {CustodyLock, ExactToken} from "../../src/ExactToken.sol";
+import {ServiceHook} from "../../src/ServiceHook.sol";
+import {ActiveFixture} from "../fixtures/ActiveFixture.sol";
+import {CustodyToken} from "../fixtures/CustodyFixture.sol";
 import {PoolId} from "v4-core/src/types/PoolId.sol";
 
 interface VmCode {
@@ -20,7 +20,7 @@ contract ClockLookalike {
     PoolId public immutable poolId;
     bytes32 public constant pendingAdd = 0;
 
-    /// @notice Bind the supplied fixture dependencies for subsequent calls.
+    /// @notice Mimic the genuine clock's bindings while exposing synthetic service time.
     constructor(address owner, address core, PoolId id) {
         vault = owner;
         poolManager = core;
@@ -38,7 +38,7 @@ contract CompensationSettlementTest is ActiveFixture {
     bool private duringRemoval;
     error ReserveStolen(uint256 expectedBalance, uint256 actualBalance);
 
-    /// @notice Pull the manager's entitlement and compare the resulting transfer with the fixture ledger.
+    /// @notice Let a third party trigger the manager's fixed payout and return the base units paid.
     function claimPayment() private returns (uint256) {
         vm.prank(DONOR);
         return escrow.claim();

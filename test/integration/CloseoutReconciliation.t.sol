@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {AgreementVault} from "../src/AgreementVault.sol";
-import {CompensationEscrow} from "../src/CompensationEscrow.sol";
-import {ExactToken} from "../src/ExactToken.sol";
-import {Operation} from "../src/ServiceHook.sol";
-import {CustodyToken} from "./fixtures/CustodyFixture.sol";
-import {PositionAccountingFixture} from "./fixtures/PositionAccountingFixture.sol";
+import {AgreementVault} from "../../src/AgreementVault.sol";
+import {CompensationEscrow} from "../../src/CompensationEscrow.sol";
+import {ExactToken} from "../../src/ExactToken.sol";
+import {Operation} from "../../src/ServiceHook.sol";
+import {CustodyToken} from "../fixtures/CustodyFixture.sol";
+import {PositionAccountingFixture} from "../fixtures/PositionAccountingFixture.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
 

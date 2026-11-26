@@ -4,7 +4,7 @@ pragma solidity 0.8.26;
 import {AgreementVault} from "../../src/AgreementVault.sol";
 import {CompensationEscrow} from "../../src/CompensationEscrow.sol";
 import {IC1Token, CustodyLock} from "../../src/ExactToken.sol";
-import {Vm} from "../AgreementVaultAcceptance.t.sol";
+import {Vm} from "../helpers/Vm.sol";
 
 interface ITransferProbe {
     /// @notice Run the test's configured probe during a mock token transfer.
