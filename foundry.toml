@@ -15,3 +15,6 @@ runs = 64
 depth = 64
 fail_on_revert = true
 show_metrics = true
+
+[rpc_endpoints]
+unison_script = "${UNISON_SCRIPT_RPC}"
