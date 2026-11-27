@@ -24,27 +24,15 @@ On a bandwidth-limited fresh checkout, the full upstream v4-core history can exc
 )
 ```
 
-Use the [pinned root setup](../README.md#setup), the pinned core checkout and the existing M6 Python environment (Python 3.12, Web3.py 7.13.0). The checked tools were Anvil/Forge 1.8.7, Node 22.19.0 and npm 11.21.3. From the repository root, use the first command when the Forge artifacts are missing or their source inputs changed.
+Use the toolchain and implementation pin in [README setup](../README.md#setup). Once the pinned protocol sources and Python packages are present, build the checked artifacts and preview from the root.
 
 ```bash
-forge build --offline --use ~/.svm/0.8.26/solc-0.8.26 experiments/m6/Comparison.sol test/fixtures/CustodyFixture.sol test/fixtures/MockOpeningReferenceAdapter.sol experiments/m1/vendor/v4-core/src/PoolManager.sol
-python3 -B scripts/viewer/artifacts.py --check
-# On a fresh workstation, restore the pinned dependencies once. Reuse an existing install.
-npm --prefix viewer ci
-npm --prefix viewer run build
+make prerequisites
+make viewer-install
+make deps sizes artifacts viewer-build
 ```
 
-Start the fixture in a foreground terminal and wait for its Ready message.
-
-```bash
-python3 -Bu scripts/viewer/demo.py
-```
-
-From a second terminal at the repository root, serve the built page. Open `http://127.0.0.1:5173/` using that exact host. Use the built preview for presentation and browser verification. Development mode starts a separate hot-reload WebSocket path. The [viewer dependency assessment](VIEWER-DEPENDENCIES.md) records the scope of the patch and the remaining tooling exposure.
-
-```bash
-npm --prefix viewer run preview
-```
+Start `make demo` in a foreground terminal and wait for **Ready**. Run `make viewer-preview` in a second terminal at the same root and open `http://127.0.0.1:5173/` using that exact host. The presentation uses the built preview. The earlier dependency assessment records the scope of its installed-tree checks. [Viewer dependency assessment](VIEWER-DEPENDENCIES.md)
 
 The launcher reserves port 18547 before starting its own loopback-only Anvil with a private IPC socket and fresh disposable accounts. The runtime manifest is public-safe JSON held in memory at `http://127.0.0.1:18547/deployment.json`. It can be inspected with `curl -fsS http://127.0.0.1:18547/deployment.json`. An occupied port causes startup to fail. Leave its existing owner alone or use the already running viewer deliberately after checking the manifest and run ID.
 

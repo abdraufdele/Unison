@@ -1,24 +1,22 @@
 # A6 independent developer checklist
 
-**Target revision** `5b821b93c8cc5480e74a38e4afba66683fd0fca2` in the public Unison development history. Keep this checklist and its linked setup instructions open while testing that revision in your own clean checkout. Record your fresh runs and observations. A6 remains pending until a second developer supplies a dated record. [Local runbook](LOCAL-VIEWER.md) · [Earlier author rehearsal](A6-AUTHOR-REHEARSAL.md) · [Dependency revision and revalidation](VIEWER-DEPENDENCIES.md)
-
-The target includes the GNU-grep mutation runner fixes and the latest [author technical recheck](TECHNICAL-RECHECK.md). The product and browser implementation is unchanged from the earlier patched runtime. Author checks are not this reviewer’s evidence. Do not copy their result into the blank reviewer record.
+**Implementation and reviewer target** `e14fb19801c9c3bede31b36d9cfeb2ad237c66f2` on development. Keep these current instructions open alongside the detached checkout. The earlier checklist targeted `5b821b93c8cc5480e74a38e4afba66683fd0fca2`. The published two-round author receipts belong to their original checkout. A6 requires a second developer’s dated results from two fresh rounds on the current target. [Implementation tree](https://github.com/abdraufdele/Unison/tree/e14fb19801c9c3bede31b36d9cfeb2ad237c66f2) · [Historical author rehearsal](A6-AUTHOR-REHEARSAL.md) · [Current author verification](DEVELOPMENT-EVIDENCE.md)
 
 ## Prepare and start
 
-1. Use Linux x86-64 or WSL2 with Git, Bash, Python 3.12 with Web3.py 7.13.0, Forge and Anvil 1.8.7 at `985eeea031d79922cd654d4e94e6c3701e1c7d73`, native solc 0.8.26, Node 22.19.0 and npm 11.21.3. The viewer lockfile selects Playwright Core 1.55.1 and its Chromium headless shell build 1193. Record which tools, caches and libraries were already present.
+1. Use Linux x86-64 or WSL2 with Git, Bash, Python 3.12 with Web3.py 7.13.0, Forge, Cast and Anvil 1.8.7 at `985eeea031d79922cd654d4e94e6c3701e1c7d73`, native solc 0.8.26, Node 22.19.0 and npm 11.21.3. The viewer lockfile selects Playwright Core 1.55.1 and its Chromium headless shell build 1193. Record which tools, caches and libraries were already present.
 2. Clone into a new directory. Run the following from the directory that will contain the checkout.
 
    ```bash
    git clone --branch development --single-branch https://github.com/abdraufdele/Unison.git unison-a6
    cd unison-a6
-   git switch --detach 5b821b93c8cc5480e74a38e4afba66683fd0fca2
+   git switch --detach e14fb19801c9c3bede31b36d9cfeb2ad237c66f2
    git rev-parse HEAD
    git status --short
    ```
 
-3. Verify the five M1 hashes, compiler hash, v4-core commit, Solmate gitlink and clean dependency trees. Use the pinned [dependency setup](../experiments/m1/REPLAY.md#tools-and-inputs) or the equivalent shallow fetch in the [viewer runbook](LOCAL-VIEWER.md#start-inspect-and-stop). Build from sources with the viewer's explicit four-input Forge command. Run `python3 -B scripts/viewer/artifacts.py --check`, `npm --prefix viewer ci` and `npm --prefix viewer run build`. For automated browser checks, use the lockfile-selected shell installed with `viewer/node_modules/.bin/playwright-core install chromium --only-shell` or set `CHROMIUM_PATH` to its executable.
-4. Use a disposable local environment with loopback ports 18547 and 5173 free. From the checkout root start `python3 -Bu scripts/viewer/demo.py` in one foreground terminal. Wait for **Ready**, record the run ID and verify the manifest at `http://127.0.0.1:18547/deployment.json`. In another terminal run `npm --prefix viewer run preview` and open `http://127.0.0.1:5173/`. An occupied port requires a different disposable environment or network namespace. Leave its owner running.
+3. Fetch the pinned v4-core and Solmate sources using the dependency block under [README setup](../README.md#setup). On a provisioned host run `make prerequisites`, then `make viewer-install` for the locked packages. Run `make deps fmt-check sizes`, `make test SEED=0x19112026` and `make artifacts viewer-build`. Record executed results. The current suites live in [unit](../test/unit/), [integration](../test/integration/), [fuzz](../test/fuzz/) and [invariant](../test/invariant/). The four isolated faults have their own `make mutations` target. For automated browser replay, set `CHROMIUM_PATH` to the compatible headless shell. [Operator runbook](OPERATIONS.md)
+4. On loopback with ports 18547 and 5173 free, run `make demo` in one terminal. Wait for **Ready**, record its run ID and verify the manifest at `http://127.0.0.1:18547/deployment.json`. Run `make viewer-preview` in a second terminal and open `http://127.0.0.1:5173/`. The six-decimal assets and opening reference are mocks. The fixed demo roles use accelerated local chain time.
 
 ## Complete two rounds
 

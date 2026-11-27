@@ -6,7 +6,7 @@ The hook observes third-party swaps as they happen and admits a vault-authorized
 
 **What changed in the comparison?** The matched retainer delivered the same liquidity, fills, fees and principal across seven scenarios. Both arrangements allowed independent exit. The demonstrated difference is onchain payment for seconds of agreed service. Its value to a particular buyer remains open. [Matched results and costs](docs/M6-COMPARISON.md)
 
-[Three-minute judge route and timed pitch](docs/M8-DEMO.md) · [Judge evidence and questions](docs/M8-JUDGE.md) · [Submission checklist](docs/M8-SUBMISSION.md)
+[Final judge handoff](docs/M8-SUBMISSION.md#judge-handoff) · [Three-minute inspection](docs/M8-DEMO.md#three-minute-judge-inspection) · [Judge questions](docs/M8-JUDGE.md)
 
 ## How one second becomes payable
 
@@ -21,18 +21,19 @@ Both parties accept the same terms hash before funding. At activation a fresh op
 
 ## Evidence and limits
 
-- **Historical measured cost.** In the original M6 build’s interrupted 300-second period with an outward swap, a return and a post-expiry swap, Unison used **9,405,354 more gas** than the bounded retainer. That includes one dedicated deployment per arm and its lifecycle transactions. Shared infrastructure and fixture costs are itemized separately. With the current development bytecode, a fresh run measured **9,405,402 extra gas** on the same workload. Both runs reconciled the same fills, service and terminal balances. [Current payer totals](docs/DEVELOPMENT-EVIDENCE.md#fresh-comparison) The 40 B refund redistributes the existing budget. [Payer ledger and workload](docs/M6-COMPARISON.md#cost-by-payer-and-economic-hurdle)
-- **Local engineering.** The original root suite passed 115 tests. The reorganized development suite passes 116, including a randomized stateful campaign. Two author rounds on a provisioned WSL2 host reproduced three paths each. Chromium rechecked the patched viewer. Independent reproduction, customer acceptance, buyer economics and a narrated video remain pending. The pre-refactor implementation is on the default [main branch](https://github.com/abdraufdele/Unison), integrated from development with a regular merge preserving individual commit history. [Author receipts](docs/A6-AUTHOR-REHEARSAL.md) · [Dependency assessment](docs/VIEWER-DEPENDENCIES.md) · [Independent checklist](docs/A6-REVIEWER.md) · [Latest local recheck](docs/TECHNICAL-RECHECK.md)
-- **Limits.** The treasury bears market and inventory risk. The clock measures the agreed position condition. It can pay through external price drift and says nothing about profit, effort or guaranteed execution. Exit needs working vault, hook and core contracts, transferable principal tokens, chain progress and inclusion. The demo blocks one escrow-to-manager route. A global token freeze could block principal too. Only local mock assets and a mock opening source were exercised. [Service specification](docs/SERVICE-SPEC.md) · [Closeout assumptions](docs/CLOSEOUT.md)
+- **Cost.** On the current build, the interrupted 300-second workload cost Unison **9,405,402 gas more** than the bounded retainer. This includes each arm’s dedicated deployment, an outward swap, a return and a post-expiry swap. Both delivered the same liquidity, fills and fees. The original M6 build measured 9,405,354 extra gas. The 40 B refund redistributes the funded budget. [Current payer totals](docs/DEVELOPMENT-EVIDENCE.md#fresh-comparison) · [Historical workload](docs/M6-COMPARISON.md#cost-by-payer-and-economic-hurdle)
+- **Execution.** The author’s root run passed all 116 tests across 16 suites. A separate empty-cache build confirmed discovery. The release browser exported eight statements. The earlier two-round author rehearsal and its original revision remain available. Independent A6, customer decisions, buyer-specific economics and a narrated video are pending. [Current execution evidence](docs/DEVELOPMENT-EVIDENCE.md) · [Historical author receipts](docs/A6-AUTHOR-REHEARSAL.md) · [Independent checklist](docs/A6-REVIEWER.md)
+- **Limits.** The treasury bears inventory risk. Exit needs functioning contracts, transferable principal assets, chain progress and transaction inclusion. The demo blocks only the escrow-to-manager route. Local and fork simulations used mock assets and a mock opening source. Pinned Unichain forks exercised the deployed cores on owned nodes. Public deployment and explorer verification remain unexecuted. Mainnet preparation requires a reviewed exact-transfer token pair and suitable independent opening reference. [Network checks](docs/NETWORK-CHECKS.md) · [Closeout assumptions](docs/CLOSEOUT.md)
 
 ## Setup
 
-Use a fresh directory on a provisioned Linux x86-64 host. The rehearsed toolchain used WSL2 Ubuntu 24.04.3, Forge/Anvil 1.8.7 at `985eeea031d79922cd654d4e94e6c3701e1c7d73`, native solc 0.8.26, Python 3.12.3 with Web3.py 7.13.0, Node 22.19.0 and npm 11.21.3. This checkout pins the viewer revision revalidated after the dependency update. Keep the judge documents open on development. [Tool prerequisites and setup deviations](docs/A6-AUTHOR-REHEARSAL.md#setup-and-deviations)
+Use a fresh directory on a provisioned Linux x86-64 host. The rehearsed toolchain used WSL2 Ubuntu 24.04.3, Forge/Cast/Anvil 1.8.7 at `985eeea031d79922cd654d4e94e6c3701e1c7d73`, native solc 0.8.26, Python 3.12.3 with Web3.py 7.13.0, Node 22.19.0 and npm 11.21.3. Check out the implementation and independent reviewer pin `e14fb19801c9c3bede31b36d9cfeb2ad237c66f2`. Keep the current judge instructions open on development while running the pinned code. [Tool prerequisites and setup deviations](docs/A6-AUTHOR-REHEARSAL.md#setup-and-deviations)
 
 ```bash
 git clone --branch development --single-branch https://github.com/abdraufdele/Unison.git unison-judge
 cd unison-judge
-git switch --detach a3c5173d9546d017ba322b66ea8096eabdd8ba55
+git switch --detach e14fb19801c9c3bede31b36d9cfeb2ad237c66f2
+git rev-parse HEAD
 ```
 
 From that root, fetch the pinned source into the unused vendor directory. The subshell stops at the first failed check. The Foundry profile selects Cancun, via IR and optimizer 200.
@@ -61,25 +62,14 @@ Run `make help` from the root for the supported command groups. After installing
 
 ### Tests and viewer build
 
-Run from the checkout root using the native compiler at the indicated path. The M6 checker reads the published CSVs offline.
+From the checkout root, use the Python dependencies pinned in `requirements-dev.txt`. On a freshly provisioned checkout, restore the locked viewer packages once. The M6 target verifies the published historical CSVs offline. To generate receipts for the pinned implementation, use the fresh comparison command in the runbook. [Python setup and command verification](docs/OPERATIONS.md)
 
 ```bash
-(
-  set -eu
-  export FOUNDRY_PROFILE=default
-  forge --version | grep -F 985eeea031d79922cd654d4e94e6c3701e1c7d73
-  anvil --version | grep -F 985eeea031d79922cd654d4e94e6c3701e1c7d73
-  c1_solc=~/.svm/0.8.26/solc-0.8.26
-  printf '%s  %s\n' d5f23436f443edb85d8e76906d12f0a86ce0490e7663a9e608efeb7a93f149ef "$c1_solc" | sha256sum -c -
-  python3 scripts/check_opening_grid.py
-  forge fmt --check src test
-  forge test --offline --use "$c1_solc" -vv
-  python3 -B experiments/m6/check.py
-  forge build --offline --use "$c1_solc" experiments/m6/Comparison.sol test/fixtures/CustodyFixture.sol test/fixtures/MockOpeningReferenceAdapter.sol experiments/m1/vendor/v4-core/src/PoolManager.sol
-  python3 -B scripts/viewer/artifacts.py --check
-  npm --prefix viewer ci
-  npm --prefix viewer run build
-)
+make prerequisites
+make viewer-install
+make deps fmt-check sizes
+make test SEED=0x19112026
+make artifacts viewer-build m6
 ```
 
 ### Run the interactive demo
@@ -87,13 +77,13 @@ Run from the checkout root using the native compiler at the indicated path. The 
 In terminal one at the checkout root, start the local chain and wait for **Ready**.
 
 ```bash
-python3 -Bu scripts/viewer/demo.py
+make demo
 ```
 
 In terminal two at the same root, serve the built page.
 
 ```bash
-npm --prefix viewer run preview
+make viewer-preview
 ```
 
 Open `http://127.0.0.1:5173/`, check the funded run ID and select **Use this demo run**. Follow the payment path in the timed script. In the launcher prompt, `reset <full-current-run-id>` replaces that disposable fixture. Copy its actual ID, then confirm a new funded ID before choosing a different path. Enter `stop` in the launcher and press Ctrl-C in the preview terminal to finish. The runbook includes the pinned local Chromium install and automated browser commands. [Viewer controls and replay](docs/LOCAL-VIEWER.md) · [Timed demo](docs/M8-DEMO.md)
