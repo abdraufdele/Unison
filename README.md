@@ -21,40 +21,22 @@ Both parties accept the same terms hash before funding. At activation a fresh op
 
 ## Evidence and limits
 
-- **Cost.** On the current build, the interrupted 300-second workload cost Unison **9,405,402 gas more** than the bounded retainer. This includes each arm’s dedicated deployment, an outward swap, a return and a post-expiry swap. Both delivered the same liquidity, fills and fees. The original M6 build measured 9,405,354 extra gas. The 40 B refund redistributes the funded budget. [Current payer totals](docs/DEVELOPMENT-EVIDENCE.md#fresh-comparison) · [Historical workload](docs/M6-COMPARISON.md#cost-by-payer-and-economic-hurdle)
+- **Cost.** On the current build, the interrupted 300-second workload cost Unison **9,405,390 gas more** than the bounded retainer. This includes each arm’s dedicated deployment, an outward swap, a return and a post-expiry swap. Both delivered the same liquidity, fills and fees. The original M6 build measured 9,405,354 extra gas. The 40 B refund redistributes the funded budget. [Current payer totals](docs/DEVELOPMENT-EVIDENCE.md#standard-foundry-layout-recheck) · [Historical workload](docs/M6-COMPARISON.md#cost-by-payer-and-economic-hurdle)
 - **Execution.** The author’s root run passed all 116 tests across 16 suites. A separate empty-cache build confirmed discovery. The release browser exported eight statements. The earlier two-round author rehearsal and its original revision remain available. Independent A6, customer decisions, buyer-specific economics and a narrated video are pending. [Current execution evidence](docs/DEVELOPMENT-EVIDENCE.md) · [Historical author receipts](docs/A6-AUTHOR-REHEARSAL.md) · [Independent checklist](docs/A6-REVIEWER.md)
 - **Limits.** The treasury bears inventory risk. Exit needs functioning contracts, transferable principal assets, chain progress and transaction inclusion. The demo blocks only the escrow-to-manager route. Local and fork simulations used mock assets and a mock opening source. Pinned Unichain forks exercised the deployed cores on owned nodes. Public deployment and explorer verification remain unexecuted. Mainnet preparation requires a reviewed exact-transfer token pair and suitable independent opening reference. [Network checks](docs/NETWORK-CHECKS.md) · [Closeout assumptions](docs/CLOSEOUT.md)
 
 ## Setup
 
-Use a fresh directory on a provisioned Linux x86-64 host. The rehearsed toolchain used WSL2 Ubuntu 24.04.3, Forge/Cast/Anvil 1.8.7 at `985eeea031d79922cd654d4e94e6c3701e1c7d73`, native solc 0.8.26, Python 3.12.3 with Web3.py 7.13.0, Node 22.19.0 and npm 11.21.3. Check out the implementation and independent reviewer pin `e14fb19801c9c3bede31b36d9cfeb2ad237c66f2`. Keep the current judge instructions open on development while running the pinned code. [Tool prerequisites and setup deviations](docs/A6-AUTHOR-REHEARSAL.md#setup-and-deviations)
+Use a provisioned Linux x86-64 or WSL2 host with the pinned tools listed in [operations](docs/OPERATIONS.md). The active project uses standard Foundry Git submodules under `lib/`, explicit root `remappings.txt`, and the existing `src/`, `script/`, categorized `test/`, `scripts/`, `config/`, `viewer/` and `docs/` directories. [Dependency pins and layout](docs/DEPENDENCIES.md)
 
 ```bash
 git clone --branch development --single-branch https://github.com/abdraufdele/Unison.git unison-judge
 cd unison-judge
-git switch --detach e14fb19801c9c3bede31b36d9cfeb2ad237c66f2
-git rev-parse HEAD
+git submodule update --init -- lib/v4-core lib/solmate lib/forge-std lib/openzeppelin-contracts
+make prerequisites
 ```
 
-From that root, fetch the pinned source into the unused vendor directory. The subshell stops at the first failed check. The Foundry profile selects Cancun, via IR and optimizer 200.
-
-```bash
-(
-  set -eu
-  cd experiments/m1
-  sha256sum -c SHA256SUMS
-  git init -q vendor/v4-core
-  git -C vendor/v4-core remote add origin https://github.com/Uniswap/v4-core.git
-  git -C vendor/v4-core fetch --depth 1 origin e50237c43811bd9b526eff40f26772152a42daba
-  git -C vendor/v4-core checkout --detach FETCH_HEAD
-  test "$(git -C vendor/v4-core rev-parse HEAD)" = e50237c43811bd9b526eff40f26772152a42daba
-  test "$(git -C vendor/v4-core rev-parse HEAD:lib/solmate)" = 4b47a19038b798b4a33d9749d25e570443520647
-  git -C vendor/v4-core submodule update --init --depth 1 -- lib/solmate
-  test "$(git -C vendor/v4-core/lib/solmate rev-parse HEAD)" = 4b47a19038b798b4a33d9749d25e570443520647
-  test -z "$(git -C vendor/v4-core status --porcelain)"
-  test -z "$(git -C vendor/v4-core/lib/solmate status --porcelain)"
-)
-```
+The root gitlinks pin every library. Nested upstream development dependencies are not needed for the active build. The separate preserved M1 experiment retains its original vendor configuration and [historical replay procedure](experiments/m1/REPLAY.md). The earlier verified implementation/A6 pin `e14fb19801c9c3bede31b36d9cfeb2ad237c66f2` predates this layout; use its own instructions when replaying that exact historical revision. This layout change requires fresh artifact/build identities, not reuse of an earlier deployment manifest.
 
 ### Development commands
 

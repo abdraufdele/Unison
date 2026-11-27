@@ -28,10 +28,12 @@ def checkPins():
     expectedDigest = "d5f23436f443edb85d8e76906d12f0a86ce0490e7663a9e608efeb7a93f149ef"
     with compiler.open("rb") as binary:
         assert hashlib.file_digest(binary, "sha256").hexdigest() == expectedDigest
-    core = "experiments/m1/vendor/v4-core"
+    core = "lib/v4-core"
     for path, pin in (
         (core, "e50237c43811bd9b526eff40f26772152a42daba"),
-        (core + "/lib/solmate", "4b47a19038b798b4a33d9749d25e570443520647"),
+        ("lib/forge-std", "1de6eecf821de7fe2c908cc48d3ab3dced20717f"),
+        ("lib/openzeppelin-contracts", "dbb6104ce834628e473d2173bbc9d47f81a9eec3"),
+        ("lib/solmate", "4b47a19038b798b4a33d9749d25e570443520647"),
     ):
         assert output("git", "-C", path, "rev-parse", "HEAD") == pin
         assert not output("git", "-C", path, "status", "--porcelain", "--untracked-files=no"), path

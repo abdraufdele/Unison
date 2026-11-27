@@ -10,9 +10,8 @@ case_name=testTerminalRefundLeavesUnpaidEarnedReserve
 case_args=(--match-path test/integration/CompensationSettlement.t.sol --match-test "$case_name" -vv)
 forge test "${compiler[@]}" "${case_args[@]}" > "$run/baseline.log" 2>&1
 grep -F "[PASS] $case_name()" "$run/baseline.log"
-cp -R src test foundry.toml "$run/"
-mkdir -p "$run/experiments/m1"
-ln -s "$PWD/experiments/m1/vendor" "$run/experiments/m1/vendor"
+cp -R src test foundry.toml remappings.txt "$run/"
+ln -s "$PWD/lib" "$run/lib"
 diff -r test "$run/test"
 cd "$run"
 test "$(grep -Fc 'return fundedBudget - totalEarned - refunded;' src/CompensationEscrow.sol)" = 1

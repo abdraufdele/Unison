@@ -20,9 +20,8 @@ compiler=(--offline --use "$HOME/.svm/0.8.26/solc-0.8.26")
 selection=(--match-path test/integration/CloseoutBoundary.t.sol --match-test "$name")
 forge test "${compiler[@]}" "${selection[@]}" -vv > "$run/baseline.log" 2>&1
 grep -F "[PASS] $name()" "$run/baseline.log"
-cp -R src test foundry.toml "$run/"
-mkdir -p "$run/experiments/m1"
-ln -s "$PWD/experiments/m1/vendor" "$run/experiments/m1/vendor"
+cp -R src test foundry.toml remappings.txt "$run/"
+ln -s "$PWD/lib" "$run/lib"
 diff -r test "$run/test"
 cd "$run"
 python3 - "$1" <<'PY'

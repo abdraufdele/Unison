@@ -4,25 +4,14 @@ The viewer reads a single mock C1 agreement at one mined block. It opens in the 
 
 ## Start, inspect and stop
 
-On a bandwidth-limited fresh checkout, the full upstream v4-core history can exceed a bounded fetch. The following alternative fetches the same core commit and the Solmate gitlink from upstream. Run this **before** the Forge build, from the Unison root with an unused vendor destination. The subshell returns to the Unison root for the viewer commands.
+Restore the active root Git submodules before building. This is separate from replaying the preserved historical M1 experiment.
 
 ```bash
-(
-  set -eu
-  cd experiments/m1
-  sha256sum -c SHA256SUMS
-  git init -q vendor/v4-core
-  git -C vendor/v4-core remote add origin https://github.com/Uniswap/v4-core.git
-  git -C vendor/v4-core fetch --depth 1 origin e50237c43811bd9b526eff40f26772152a42daba
-  git -C vendor/v4-core checkout --detach FETCH_HEAD
-  test "$(git -C vendor/v4-core rev-parse HEAD)" = e50237c43811bd9b526eff40f26772152a42daba
-  test "$(git -C vendor/v4-core rev-parse HEAD:lib/solmate)" = 4b47a19038b798b4a33d9749d25e570443520647
-  git -C vendor/v4-core submodule update --init --depth 1 -- lib/solmate
-  test "$(git -C vendor/v4-core/lib/solmate rev-parse HEAD)" = 4b47a19038b798b4a33d9749d25e570443520647
-  test -z "$(git -C vendor/v4-core status --porcelain)"
-  test -z "$(git -C vendor/v4-core/lib/solmate status --porcelain)"
-)
+git submodule update --init -- lib/v4-core lib/solmate lib/forge-std lib/openzeppelin-contracts
+make prerequisites
 ```
+
+[Dependency layout and pins](DEPENDENCIES.md). If replaying a historical detached revision, use that revision's own README setup; older revisions used the experiment vendor tree.
 
 Use the toolchain and implementation pin in [README setup](../README.md#setup). Once the pinned protocol sources and Python packages are present, build the checked artifacts and preview from the root.
 

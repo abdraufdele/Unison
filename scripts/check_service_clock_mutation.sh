@@ -9,9 +9,8 @@ forge_args=(--offline --use "$HOME/.svm/0.8.26/solc-0.8.26")
 test_args=(--match-path test/integration/ServiceClock.t.sol --match-test testFullRemovalPreservesOldIntervalAndReopeningUsesFreshSalt)
 forge test "${forge_args[@]}" "${test_args[@]}" -vv > "$run/baseline.log" 2>&1
 grep -F '[PASS] testFullRemovalPreservesOldIntervalAndReopeningUsesFreshSalt()' "$run/baseline.log"
-cp -R src test foundry.toml "$run/"
-mkdir -p "$run/experiments/m1"
-ln -s "$PWD/experiments/m1/vendor" "$run/experiments/m1/vendor"
+cp -R src test foundry.toml remappings.txt "$run/"
+ln -s "$PWD/lib" "$run/lib"
 test "$(grep -F -c 'ServiceHook(bindings.hook).beforeAdjustment();' "$run/src/AgreementVault.sol")" = 1
 sed -i '/ServiceHook(bindings.hook)\.beforeAdjustment();/d' "$run/src/AgreementVault.sol"
 diff -ru test "$run/test"
