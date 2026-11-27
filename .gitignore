@@ -36,3 +36,6 @@ Thumbs.db
 # Private operator configs, disposable deployment manifests and local comparisons
 /.local/ops/
 __pycache__/
+
+# Local Python lint cache
+.ruff_cache/

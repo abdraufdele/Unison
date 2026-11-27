@@ -20,15 +20,17 @@ SOLC := $(HOME)/.svm/0.8.26/solc-0.8.26
 FORGE := forge
 FLAGS := --offline --use "$(SOLC)"
 PY := python3 -B
-FIXTURES := experiments/m6/Comparison.sol test/fixtures/CustodyFixture.sol test/fixtures/MockOpeningReferenceAdapter.sol experiments/m1/vendor/v4-core/src/PoolManager.sol
+FIXTURES := experiments/m6/Comparison.sol test/fixtures/CustodyFixture.sol test/fixtures/MockOpeningReferenceAdapter.sol lib/v4-core/src/PoolManager.sol
 export PORT IPC OUTPUT SEED NETWORK CONFIG MANIFEST ACCOUNT CONFIRM_CHAIN ROLE TARGET FUNCTION ARGS INPUTS ACTION RUN_ID TERMS POSITION
 NET = $(PY) scripts/ops/network.py --network "$$NETWORK" --config "$$CONFIG" --manifest "$$MANIFEST"
 OP = $(PY) scripts/ops/interact.py --network "$$NETWORK" --config "$$CONFIG" --manifest "$$MANIFEST"
 ACT = --action "$$ACTION" --role "$$ROLE" --terms "$$TERMS" --run-id "$$RUN_ID" --position "$$POSITION" --inputs "$$INPUTS"
 
-.PHONY: help all prerequisites deps fmt fmt-check build sizes unit integration fuzz invariant test mutations mutation-clock mutation-reserve mutation-revocation mutation-payment check viewer-install viewer-build viewer-preview artifacts demo statements browser m6 m6-run local-node deploy-local preflight fork dry-run dry-run-local dry-run-sepolia dry-run-mainnet broadcast verify bindings read simulate act-local broadcast-action statement
+.PHONY: help init all prerequisites deps fmt fmt-check build sizes unit integration fuzz invariant test mutations mutation-clock mutation-reserve mutation-revocation mutation-payment check viewer-install viewer-build viewer-preview artifacts demo statements browser m6 m6-run local-node deploy-local preflight fork dry-run dry-run-local dry-run-sepolia dry-run-mainnet broadcast verify bindings read simulate act-local broadcast-action statement
 help: ## Start | List supported targets and inputs (default).
 	@awk 'BEGIN {FS=":.*## "} /^[a-z][a-z0-9-]*:.*## / {split($$2,p," \\| "); printf "%-14s %-20s %s\n",p[1],$$1,p[2]}' $(firstword $(MAKEFILE_LIST))
+init: ## Build | Restore the four exact root dependency submodules.
+	git submodule update --init -- lib/v4-core lib/solmate lib/forge-std lib/openzeppelin-contracts
 all: check ## Checks | Run all local checks sequentially.
 prerequisites: ## Build | Verify native tools, exact git pins and M1 hashes.
 	$(PY) scripts/verify.py pins

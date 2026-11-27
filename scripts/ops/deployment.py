@@ -336,10 +336,10 @@ def deployAgreement(w, c, path, mode, account=None):
         for name in set(PRODUCT.values()) | {"PoolManager"}
         for source, info in artifact(name)["metadata"]["sources"].items()
     }
-    core = "experiments/m1/vendor/v4-core"
+    core = "lib/v4-core"
     m["dependencyPins"] = {
         name: subprocess.check_output(["git", "-C", path, "rev-parse", "HEAD"], text=True).strip()
-        for name, path in (("v4-core", core), ("solmate", core + "/lib/solmate"))
+        for name, path in (("v4-core", core), ("solmate", "lib/solmate"))
     }
     m["forkPin"] = {k: c[k] for k in ("block", "blockHash", "coreHash") if k in c}
     saveJournal(path, m)

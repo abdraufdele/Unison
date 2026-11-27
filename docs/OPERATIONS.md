@@ -3,6 +3,7 @@
 Use the pinned Linux tools and dependency checkout in the [setup instructions](../README.md#setup). Run commands from the repository root. `make help` groups targets by purpose. Target names use lowercase words separated by hyphens. `make` prints help. `make check` runs the full local suite sequentially, including four isolated mutation builds and fresh browser fixtures. Install the pinned viewer packages and Playwright browser first.
 
 ```sh
+make init
 make prerequisites
 make viewer-install
 export CHROMIUM_PATH="$PWD/.local/verification/browsers/chromium_headless_shell-1193/chrome-linux/headless_shell"
@@ -130,3 +131,8 @@ The default target prints help. The two aggregate aliases were executed together
 The [development evidence](DEVELOPMENT-EVIDENCE.md) gives campaign counts, contract sizes and fresh gas figures. The [network checks](NETWORK-CHECKS.md) give pins and simulated deployment identities.
 
 The final operator check uses both named fields from the hook's qualification read. Its first expanded assertion used a numeric index and failed before closeout. The corrected check exited 0 on the freshly built artifacts. At block 33 the 100 B budget reconciled to 51 B claimed and 49 B refunded. Treasury principal recovery, zero remaining position liquidity and zero outstanding escrow rights reconciled. The fresh build procedure and original failure are recorded in [development evidence](DEVELOPMENT-EVIDENCE.md#isolated-build-and-final-operator-result).
+
+
+## Dependency layout
+
+Active Solidity dependencies live in root `lib/` as exact Git submodules. Run `make init` on a fresh checkout; root `remappings.txt` is the only active remapping list. See [pins and roles](DEPENDENCIES.md). The isolated M1 replay retains its historical vendor configuration. Library upgrades and copying a competitor implementation are outside this organization change.
