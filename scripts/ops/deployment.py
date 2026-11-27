@@ -138,6 +138,21 @@ def mineHook(factory, init):
     raise RuntimeError("CREATE2 search exhausted")
 
 
+# Resolve only supported artifact roles, preserving the original v1 fixture records.
+def deploymentArtifacts(m):
+    names = dict(PRODUCT)
+    if m.get("workflow") == "forge-script":
+        for role in ("token0", "token1", "adapter"):
+            names.pop(role)
+        if m["fixtureAssets"]:
+            fault = m.get("localFaultDemo", False)
+            require(not fault or m["network"] == "local", "fault injector outside local chain")
+            require(m["network"] != "mainnet", "mainnet fixture assets")
+            names.update(token0="CustodyToken" if fault else "DemoToken",
+                         token1="CustodyToken" if fault else "DemoToken", adapter="DemoReference")
+    return names
+
+
 # Verify deployment identity, immutable getters, runtime and vault/hook/escrow/quote bindings before use.
 def validateDeploymentBindings(w, c, m):
     require(
@@ -154,7 +169,7 @@ def validateDeploymentBindings(w, c, m):
     plan = m["create2"]
     require(plan["factory"] == a["factory"] and plan["address"] == a["hook"] and plan["flags"] == "0x840",
             "recorded hook plan mismatch")
-    for role, name in PRODUCT.items():
+    for role, name in deploymentArtifacts(m).items():
         verifyRuntime(w, name, a[role])
     require(Web3.to_hex(Web3.keccak(w.eth.get_code(a["core"]))) == m["coreHash"], "core identity mismatch")
     if c["network"] == "local":
@@ -192,10 +207,21 @@ def validateDeploymentBindings(w, c, m):
     )
     require(
         list(terms.bindings[:5]) == [a[x] for x in ("core", "token0", "token1", "hook", "escrow")]
-        and terms.bindings.referenceSource == terms.bindings.referenceAdapter,
+        and (m.get("workflow") == "forge-script" or terms.bindings.referenceSource == terms.bindings.referenceAdapter),
         "terms bindings differ from manifest",
     )
-    verifyRuntime(w, "MockOpeningReferenceAdapter", terms.bindings.referenceAdapter)
+    if m.get("workflow") == "forge-script":
+        if terms.revision == 2:
+            require(terms.bindings.referenceAdapter == a["adapter"]
+                    and terms.bindings.referenceSource == m["referenceSource"]
+                    and Web3.to_hex(v.termsHash().call()) == m["termsHash"], "initial reference or terms mismatch")
+        if not m["fixtureAssets"]:
+            for role in ("token0", "token1", "adapter", "source"):
+                addr = a[role] if role != "source" else m["referenceSource"]
+                require(addr == Web3.to_checksum_address(c[role]) and
+                        Web3.to_hex(Web3.keccak(w.eth.get_code(addr))) == c[role + "Hash"], "external dependency mismatch")
+    else:
+        verifyRuntime(w, "MockOpeningReferenceAdapter", terms.bindings.referenceAdapter)
     require(
         h.vault().call() == a["vault"]
         and h.poolManager().call() == a["core"]
@@ -221,7 +247,7 @@ def validateDeploymentBindings(w, c, m):
 # Verify historical CREATE inputs and the authenticated factory install against their canonical receipts.
 def verifyConstruction(w, m):
     addresses = m["addresses"]
-    names = dict(PRODUCT)
+    names = deploymentArtifacts(m)
     if m["network"] == "local":
         names["core"] = "PoolManager"
     require(set(names) == set(m["constructors"]), "constructor inventory mismatch")

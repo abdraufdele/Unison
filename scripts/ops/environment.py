@@ -19,7 +19,7 @@ sys.path.insert(0, str(ROOT / "experiments/m6"))
 from run import artifact, SOURCES
 
 # Include the private constructor-created helper in the existing artifact verifier.
-SOURCES["OpeningQuote"] = "OpeningQuote"
+SOURCES.update(OpeningQuote="OpeningQuote", DemoToken="DemoAssets", DemoReference="DemoAssets")
 
 CHAINS = {"local": 31337, "sepolia": 1301, "mainnet": 130}
 PRODUCT = {
@@ -60,7 +60,7 @@ def loadConfig(network, path):
     require(__debug__, "source verification requires Python assertions enabled")
     config = json.loads(Path(path or ROOT / f"config/{network}.json").read_text())
     require(config["network"] == network and config["chainId"] == CHAINS[network], "network/config mismatch")
-    require(config.get("fixtureAssets") is (network != "mainnet"), "invalid C1 mock policy for network")
+    require(type(config.get("fixtureAssets")) is bool and not (network == "mainnet" and config["fixtureAssets"]), "invalid C1 fixture policy")
     config["rpc"] = os.environ.get("UNISON_RPC_URL") or config["rpc"]
     url = urlsplit(config["rpc"])
     if network == "local":
