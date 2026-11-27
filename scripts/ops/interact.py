@@ -7,7 +7,7 @@ from pathlib import Path
 
 from web3 import Web3
 from deployment import checkSigner, sendOperation, validateDeploymentBindings
-from environment import CHAINS, checkNetwork, loadConfig, require
+from environment import OperatorRpc, CHAINS, checkNetwork, loadConfig, require
 from lifecycle import ACTIONS, exportStatement, prepareAction, readFunction, wire
 from network import confirmPublic
 
@@ -37,7 +37,7 @@ def main():
         confirmPublic(c, args.account, args.confirm_chain)
     if args.command == "send-local":
         require(args.network == "local", "local send requires local manifest")
-    w = Web3(Web3.HTTPProvider(c["rpc"], request_kwargs={"timeout": 30}))
+    w = Web3(OperatorRpc(c["rpc"], request_kwargs={"timeout": 30}))
     checkNetwork(w, c)
     with args.manifest.open() as f:
         if isSend:

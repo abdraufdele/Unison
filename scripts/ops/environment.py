@@ -44,6 +44,17 @@ def require(condition, message):
         raise ValueError(message)
 
 
+class OperatorRpc(Web3.HTTPProvider):
+    """Keep a provider's private URL out of HTTP transport errors reported by operator commands."""
+
+    # Web3 dispatches this method by its framework name. Preserve RPC replies and redact transport failures.
+    def make_request(self, method, params):
+        try:
+            return super().make_request(method, params)
+        except OSError as exc:
+            raise ConnectionError(f"Configured RPC transport failed during {method} ({type(exc).__name__})") from None
+
+
 # Bind operator inputs to the selected network and keep credential-bearing RPC URLs out of manifests.
 def loadConfig(network, path):
     require(__debug__, "source verification requires Python assertions enabled")

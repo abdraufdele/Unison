@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 import json
 from web3 import Web3
-from environment import CHAINS, CORE, checkNetwork, loadConfig, ownedChain, require
+from environment import OperatorRpc, CHAINS, CORE, checkNetwork, loadConfig, ownedChain, require
 from deployment import deployAgreement, signingEndpoint, validateDeploymentBindings, verifyConstruction
 
 
@@ -32,7 +32,7 @@ def main():
     parser.add_argument("--confirm-chain")
     args = parser.parse_args()
     c = loadConfig(args.network, args.config)
-    live = Web3(Web3.HTTPProvider(c["rpc"], request_kwargs={"timeout": 30}))
+    live = Web3(OperatorRpc(c["rpc"], request_kwargs={"timeout": 30}))
     if args.command == "broadcast":
         confirmPublic(c, args.account, args.confirm_chain)
     if args.command == "local":

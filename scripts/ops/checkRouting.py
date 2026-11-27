@@ -6,6 +6,7 @@ from hexbytes import HexBytes
 from web3.datastructures import AttributeDict
 
 from deployment import sendOperation
+from environment import OperatorRpc
 
 
 # Exercise the signed branch with a simulated receipt and inspect the subprocess environment before dispatch.
@@ -32,5 +33,20 @@ def checkSimulatedSigner():
     print("Simulated keystore route uses only the owned IPC endpoint.")
 
 
+# Confirm that even an HTTP transport failure containing the full URL yields only the method and error type.
+def checkTransportError():
+    url = "https://rpc.invalid/private-example"
+    provider = OperatorRpc(url)
+    with patch.object(Web3.HTTPProvider, "make_request", side_effect=ConnectionError(url)):
+        try:
+            provider.make_request("eth_chainId", [])
+        except ConnectionError as exc:
+            assert "eth_chainId" in str(exc) and url not in str(exc) and exc.__suppress_context__
+        else:
+            raise AssertionError("transport error was lost")
+    print("RPC transport errors omit endpoint credentials.")
+
+
 if __name__ == "__main__":
     checkSimulatedSigner()
+    checkTransportError()

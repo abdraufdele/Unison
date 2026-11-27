@@ -94,7 +94,11 @@ def sendOperation(w, c, fn, sender, account=None, onSubmitted=None):
             str(c["chainId"]),
         ]
         args += ["--create", tx["data"]] if create else [tx["to"], "--data", tx["data"]]
-        txHash = subprocess.check_output(args, env=env, text=True).strip()
+        # A failing RPC transport can include its credential-bearing URL in cast's stderr.
+        try:
+            txHash = subprocess.check_output(args, env=env, text=True, stderr=subprocess.PIPE).strip()
+        except subprocess.CalledProcessError as exc:
+            raise RuntimeError(f"Cast submission failed (exit {exc.returncode}). Inspect the journal before retrying.") from None
     else:
         require(
             w.client_version == "anvil/v1.8.7" and sender in w.eth.accounts, "expected owned Anvil account"
