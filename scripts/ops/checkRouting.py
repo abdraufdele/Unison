@@ -1,5 +1,7 @@
 """Regression check for keystore submission during a simulation."""
 
+import subprocess
+import traceback
 from unittest.mock import Mock, patch
 from web3 import IPCProvider, Web3
 from hexbytes import HexBytes
@@ -30,6 +32,19 @@ def checkSimulatedSigner():
         sendOperation(w, {"rpc": public, "chainId": 1301}, fn, actor, "example")
         assert cast.call_args.kwargs["env"]["ETH_RPC_URL"] == socket
         assert public not in cast.call_args.args[0]
+    # Cast may put a private provider URL into its failure stream. Check the traceback an operator would see.
+    marker = "redaction-test-marker"
+    failure = subprocess.CalledProcessError(1, ["cast", "send"], stderr=f"https://rpc.invalid/{marker}")
+    with patch("deployment.subprocess.check_output", side_effect=failure) as cast:
+        try:
+            sendOperation(w, {"rpc": public, "chainId": 1301}, fn, actor, "example")
+        except RuntimeError as exc:
+            assert "Cast submission failed (exit 1)" in str(exc)
+            assert marker not in "".join(traceback.format_exception(exc))
+            assert cast.call_args.kwargs["stderr"] == subprocess.PIPE
+        else:
+            raise AssertionError("failed keystore submission reported success")
+    print("Keystore failure diagnostics omit private provider output.")
     print("Simulated keystore route uses only the owned IPC endpoint.")
 
 

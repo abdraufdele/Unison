@@ -20,7 +20,7 @@ Baseline comprised 115 tests in 12 suites, including three parameterized tests a
 
 Baseline product runtime sizes in bytes were 23,891 (AgreementVault), 4,738 (ServiceHook), 2,986 (CompensationEscrow) and 4,895 (OpeningQuote). Internal libraries each compile to a 57-byte stub. See the [compiled selector inventory](SELECTORS.md) for the ABI at this revision.
 
-Stage two kept all compiled selector sets and runtime lengths above. Private Solidity names use lower camelCase. NatSpec explains custody, checkpoint ordering, identity and test scenarios. The external constant getters preserve their uppercase ABI spellings. Solidity constructors, Foundry setUp, cheatcodes and protocol callbacks keep their required signatures. React components use JSX capitalization. Python's __init__ and BaseHTTPRequestHandler's do_GET, do_POST, do_OPTIONS and log_message keep their dispatch names. M1 and the historical M6 comparison harness retain their original conventions.
+Stage two kept all compiled selector sets and runtime lengths above. Private Solidity names use lower camelCase. NatSpec explains custody, checkpoint ordering, identity and test scenarios. The external constant getters preserve their uppercase ABI spellings. Solidity constructors, Foundry setUp, cheatcodes and protocol callbacks keep their required signatures. React components use JSX capitalization. Python's __init__ and BaseHTTPRequestHandler's do_GET, do_POST, do_OPTIONS and log_message keep their dispatch names. Web3's make_request override retains its provider dispatch name. M1 and the historical M6 comparison harness retain their original conventions.
 
 
 ## Discovery and scope
@@ -39,3 +39,62 @@ Final discovery at the separated layout found 18 unit, 94 integration, three fuz
 | OpeningQuote | 4,921 | 4,895 | 512f6bcac3d42fbea2192373b0974905b9412d019e5cadcc3d7fa64dad7a04a5 |
 
 The vault retains 685 bytes of EIP-170 headroom. The viewer build identity after extracting the shared Vm interface is `601a90c0da0d875cdc932a268b3db065b065b91c813ff23a958b77b8cc175719`. New deployments mine hook addresses from these artifacts. Existing manifests bind their own build.
+
+## Fresh comparison
+
+`make m6-run OUTPUT=.local/ops/refactor-m6` executed matched local arms A (static), B (bounded retainer) and C (Unison) across seven schedules using the current creation bytecode above. The independent checker reconciled 21 lifecycles, 45 orders and 150 receipt rows including setup. Order and outcome tables matched the historical tables byte for byte. Interrupted service delivered 180 qualifying seconds, 60 B earned and 40 B refundable.
+
+| Interrupted workload, including dedicated deployment | Treasury gas | Manager gas | Trader gas | Total |
+|---|---:|---:|---:|---:|
+| Static A | 1,559,695 | 0 | 433,537 | 1,993,232 |
+| Bounded retainer B | 3,146,099 | 117,649 | 433,537 | 3,697,285 |
+| Unison C | 12,336,486 | 188,558 | 577,643 | 13,102,687 |
+| C minus B | 9,190,387 | 70,909 | 144,106 | 9,405,402 |
+
+The earlier interrupted C-minus-B result was 9,405,354 gas. The new local premium is 48 gas higher. Shared infrastructure and fixture-only operations are itemized separately. These figures are local EVM gas units. Buyer-specific valuation, chain fees and independent A6 reproduction remain open.
+
+| Fresh CSV | SHA-256 |
+|---|---|
+| gas.csv | f0e9baebb16a37d31f84dee12fd806a3447445a49234f0396eb9f6acc4d2690b |
+| orders.csv | 7e4478328663c008448d3cc8c05ec7400c83b3c20ea75202586763a4a68ec039 |
+| outcomes.csv | babf621d1785ab59607ab997e611f19ff1f1402c9222c344c5b7caf86a94cdd7 |
+
+Use a fresh empty output directory to repeat the comparison. The preserved results under experiments/m6/results still describe the historical build.
+
+## Operator and browser checks
+
+The final Chromium build exported eight statements covering funded, active, manager rerange, termination, refund, repeated refund, interrupted swap and expiry. Missing, duplicate and misordered event results were rejected against receipts. The payment journey observed failed transfers, successful independent principal recovery and later payment of the reserved balance. The swap journey stopped and resumed accrual on actual core tick changes. All exercised the build identity above. Repeat with `make browser` after `make viewer-build`.
+
+The Foundry constructor script simulates a direct treasury CREATE. The Foundry lifecycle script rehearses consent through independent closeout. The Python driver acquires real addresses from mined receipts in the selected simulation, mines the hook salt, journals partial progress and verifies final bindings. The operator CLI filters reads by ABI mutability and dispatches explicit actions by role. Both scripts and the local acceptance sequence ran on disposable signers. The [network checks](NETWORK-CHECKS.md) record chain-specific results. The [selector inventory](SELECTORS.md) maps each callable entry and generated getter to its use.
+
+The current development surface has 47 vault, 36 hook, 15 escrow and two quote selectors. The compiler-derived check also covers the token, opening-reference and settlement-reader interfaces. It resolves active source declarations and their compilation targets, so cached artifacts from removed declarations do not enter the inventory. The independent opening-grid calculation reproduced all three digests checked by the unit tests.
+
+## Mutation acceptance
+
+Each runner first executes its selected test on the correct build, verifies identical test sources in the isolated workspace and compiles the changed contract. It checks the failing test name, error arguments and runner-specific trace evidence. The aggregate Make check repeated all four with the following outcomes. Compiler and baseline exited 0 and each selected mutant test exited 1.
+
+| Make target | Expected failure observed |
+|---|---|
+| mutation-clock | OldIntervalLost(100, 0) |
+| mutation-reserve | ReserveStolen(20000000, 0) |
+| mutation-revocation | ExpiredPositionChanged(100000000000, 0) |
+| mutation-payment | PrincipalReceiptShort(1900054977, 1401826223) |
+
+## Isolated build and final operator result
+
+An empty Foundry output directory and an empty compiler cache produced a successful native solc 0.8.26 build of 81 files. Fresh JSON discovery matched the multiset of current test names **and source paths** exactly, with 18 unit, 94 integration, three fuzz and one invariant entry. For 25 declarations covering the product, core, deployment fixtures and comparison arms, the comparison checked ABI, method identifiers, exact creation and runtime bytes, and compiler source identities. All matched across the retained previous build, the isolated build and the installed output. Every source named by the installed artifact metadata exists. The obsolete ICancellation artifact is absent. The viewer's generated bindings and build identity matched the installed artifacts.
+
+Repeat the isolated build and discovery from the repository root. The subshell keeps the alternate paths local to the check.
+
+```sh
+(
+  set -eu
+  mkdir -p .local/verification
+  fresh=$(mktemp -d "$PWD/.local/verification/fresh-XXXXXXXX")
+  export FOUNDRY_OUT="$fresh/out" FOUNDRY_CACHE_PATH="$fresh/cache"
+  forge build --offline --use "$HOME/.svm/0.8.26/solc-0.8.26" src test script experiments/m6/Comparison.sol experiments/m1/vendor/v4-core/src/PoolManager.sol
+  forge test --offline --use "$HOME/.svm/0.8.26/solc-0.8.26" --list --json > "$fresh/discovery.json"
+)
+```
+
+The first expanded operator assertion indexed a named ABI result numerically. That acceptance run exited 2 from Make. The corrected assertion checks both the qualified flag and zero failure bits. On the fresh artifacts, `make check-actions` exited 0. The terminal statement at block 33 reconciled 153 qualifying seconds over the original 300-second term. Of 100 funded B, the manager received 51 B and the treasury received a 49 B refund. Earned unpaid, claimable, refundable, escrow balance and owned liquidity were all zero. The exporter reconciled the liquidity exit and idle withdrawal to the fixed treasury using product events and token balance changes. The separate Chromium release replay exited 0, including the reader state vectors, fault cases, stale manifest and all eight exports.

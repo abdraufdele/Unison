@@ -2,6 +2,8 @@
 
 Read [PLAN.md](../PLAN.md), then only the relevant spec, milestone and evidence. [AGENTS.md](../AGENTS.md) contains persistent rules. The [M1 import record](../experiments/m1/README.md) identifies the preserved evidence and source.
 
+The [operator runbook](OPERATIONS.md) covers the development Make targets, version checks, bounded local actions and network rehearsals. [Current test, bytecode and measurement evidence](DEVELOPMENT-EVIDENCE.md)
+
 ## Starting point
 
 M1 compatibility/accounting passed in a bounded experiment. The separate root suite covers C1 consent, funding, cancellation, activation, bounded management, service accounting, compensation and independent closeout. Use the [root setup commands](../README.md#setup) for those tests. Local engineering checks have passed; customer fit, buyer-specific economic justification and independent A6 reproduction remain open.
