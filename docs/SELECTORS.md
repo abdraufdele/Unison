@@ -1,6 +1,6 @@
 # C1 compiled selectors
 
-Baseline creation-bytecode digests use SHA-256, including compiler metadata. Getter entries are included.
+Baseline creation-bytecode digests use SHA-256, including compiler metadata. Getter entries are included. Each read row uses `make -s read TARGET=<contract> FUNCTION=<name>` with positional JSON `ARGS` when needed. Use targets `vault`, `hook`, `escrow`, `quote`, `token0` or `token1`, and `adapter` for the corresponding sections. Settlement context is a vault getter. Each lifecycle row uses the function name as `ACTION` with `make simulate` or `make act-local`. Fixed funding approvals use `approveA` and `approveB`. The fixture factory is used only by the deployment driver. See the [actor, bounds and manifest inputs](OPERATIONS.md).
 
 ## AgreementVault
 
@@ -144,3 +144,9 @@ Baseline creation SHA-256 `23a569bb85c9c137de6fa0417d5d1b66953403feaf11a623fea23
 | Selector | Signature | Route |
 |---|---|---|
 | `0x09be76c9` | `observation()` | read |
+
+## ISettlementVault
+
+| Selector | Signature | Route |
+|---|---|---|
+| `0xe1d36f28` | `settlementContext()` | read on vault |
