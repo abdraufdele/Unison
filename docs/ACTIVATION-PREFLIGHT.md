@@ -23,7 +23,7 @@ Each row uses six-decimal base units. The test compares the quote to signed prin
 
 At an initialized upper tick of 120 the parity band was ineligible. In the last row a real downward swap crossed initialized tick zero and stopped at its sqrt price. That state also rejected a fresh band of [0, 240). Using the tick inferred from price would have reversed both decisions.
 
-A separate test payer owned the trial position and settled with its own mock tokens. Each positive leg was tried one unit short from an equivalent snapshot. All six short trials reverted on the actual token debit and rolled back the position. All four exact trials settled with zero payer inventory left. The vault retained its principal and the escrow kept its budget. [Core tests](../test/ActivationPreflight.t.sol) and [test hook and payer](../test/fixtures/CoreSeedHarness.sol).
+A separate test payer owned the trial position and settled with its own mock tokens. Each positive leg was tried one unit short from an equivalent snapshot. All six short trials reverted on the actual token debit and rolled back the position. All four exact trials settled with zero payer inventory left. The vault retained its principal and the escrow kept its budget. [Core tests](../test/integration/ActivationPreflight.t.sol) and [test hook and payer](../test/fixtures/CoreSeedHarness.sol).
 
 ## Reproduction and limits
 

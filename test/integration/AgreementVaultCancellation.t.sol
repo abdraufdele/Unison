@@ -1,29 +1,31 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {AgreementVault} from "../src/AgreementVault.sol";
-import {CompensationEscrow} from "../src/CompensationEscrow.sol";
-import {ExactToken} from "../src/ExactToken.sol";
-import {CustodyFixture, CustodyToken} from "./fixtures/CustodyFixture.sol";
-import {Vm} from "./AgreementVaultAcceptance.t.sol";
+import {AgreementVault} from "../../src/AgreementVault.sol";
+import {CompensationEscrow} from "../../src/CompensationEscrow.sol";
+import {ExactToken} from "../../src/ExactToken.sol";
+import {CustodyFixture, CustodyToken} from "../fixtures/CustodyFixture.sol";
+import {Vm} from "../helpers/Vm.sol";
 
 contract AgreementVaultCancellationTest is CustodyFixture {
+    /// @notice Cancel a partially accepted draft with gifts and verify each asset's recovery path.
     function testTreasuryCancelsDraftWithGiftsAndOneAcceptance() public {
         vault.accept(vault.termsHash());
-        _give(b, address(escrow), BUDGET);
-        _give(a, address(vault), 41);
-        _give(b, address(vault), 53);
+        giveTokens(b, address(escrow), BUDGET);
+        giveTokens(a, address(vault), 41);
+        giveTokens(b, address(vault), 53);
         vault.cancel();
         require(vault.state() == AgreementVault.State.Cancelled, "cancelled");
-        _balances(PRINCIPAL, PRINCIPAL + BUDGET, 41, 53, BUDGET);
+        assertCustodyBalances(PRINCIPAL, PRINCIPAL + BUDGET, 41, 53, BUDGET);
         require(escrow.fundedBudget() == 0 && escrow.refundable() == 0 && escrow.refund() == 0, "unfunded rights");
         (uint256 amount0, uint256 amount1) = vault.withdrawIdle();
         require(amount0 == 41 && amount1 == 53, "pair gifts");
-        _balances(PRINCIPAL + 41, PRINCIPAL + BUDGET + 53, 0, 0, BUDGET);
+        assertCustodyBalances(PRINCIPAL + 41, PRINCIPAL + BUDGET + 53, 0, 0, BUDGET);
     }
 
+    /// @notice Cancel after both acceptances and require edits, new consent and funding to stay closed.
     function testTreasuryCancelsAcceptedAndClosesAllConsentAndFunding() public {
-        _accept();
+        acceptTerms();
         bytes32 h = vault.termsHash();
         AgreementVault.Bindings memory bindings = vault.currentTerms().bindings;
         vault.cancel();
@@ -39,8 +41,9 @@ contract AgreementVaultCancellationTest is CustodyFixture {
         require(vault.state() == AgreementVault.State.Cancelled && escrow.refund() == 0, "accepted cancellation");
     }
 
+    /// @notice Call cancellation as a stranger exactly at cutoff and verify recovery becomes available.
     function testStrangerCanCancelPreciselyAtCutoff() public {
-        _fund();
+        fundFixture();
         uint256 cutoff = vault.activationCutoff();
         vm.warp(cutoff - 1);
         vm.expectRevert(AgreementVault.NotTreasury.selector);
@@ -50,9 +53,10 @@ contract AgreementVaultCancellationTest is CustodyFixture {
         vm.prank(DONOR);
         vault.cancel();
         require(vault.state() == AgreementVault.State.Cancelled && escrow.refundable() == BUDGET, "cutoff cancellation");
-        _balances(0, 0, PRINCIPAL, PRINCIPAL, BUDGET);
+        assertCustodyBalances(0, 0, PRINCIPAL, PRINCIPAL, BUDGET);
     }
 
+    /// @notice Repeat permissionless cancellation after cutoff and verify the terminal state is stable.
     function testStrangerCanCancelAfterCutoffAndRepeat() public {
         vm.warp(vault.activationCutoff() + 1);
         vm.prank(DONOR);
@@ -62,10 +66,11 @@ contract AgreementVaultCancellationTest is CustodyFixture {
         require(vault.state() == AgreementVault.State.Cancelled && escrow.refund() == 0, "late cancellation");
     }
 
+    /// @notice Attempt early recovery and unauthorized withdrawal and require the state and caller guards.
     function testRecoveryRequiresCancellationAndPrincipalRequiresTreasury() public {
         vm.expectRevert(CompensationEscrow.NotTerminal.selector);
         escrow.refund();
-        _fund();
+        fundFixture();
         vm.expectRevert(CompensationEscrow.NotTerminal.selector);
         escrow.refund();
         vm.expectRevert(AgreementVault.NotCancelled.selector);
@@ -74,23 +79,24 @@ contract AgreementVaultCancellationTest is CustodyFixture {
         vm.expectRevert(AgreementVault.NotTreasury.selector);
         vm.prank(MANAGER);
         vault.withdrawIdle();
-        _balances(0, 0, PRINCIPAL, PRINCIPAL, BUDGET);
+        assertCustodyBalances(0, 0, PRINCIPAL, PRINCIPAL, BUDGET);
     }
 
+    /// @notice Cancel after funding, pull both custodies separately and verify receipts and repeated zero pulls.
     function testFundedCancellationIndependentPullsEventsAndRepeatRecovery() public {
-        _fund();
-        _give(a, address(vault), 8);
-        _give(b, address(vault), 12);
-        _give(b, address(escrow), 17);
+        fundFixture();
+        giveTokens(a, address(vault), 8);
+        giveTokens(b, address(vault), 12);
+        giveTokens(b, address(escrow), 17);
         bytes32 h = vault.termsHash();
         vm.recordLogs();
         vault.cancel();
         vault.cancel();
-        _balances(0, 0, PRINCIPAL + 8, PRINCIPAL + 12, BUDGET + 17);
+        assertCustodyBalances(0, 0, PRINCIPAL + 8, PRINCIPAL + 12, BUDGET + 17);
         require(escrow.refundable() == BUDGET && escrow.refunded() == 0, "all credited budget due");
         vm.prank(DONOR);
         require(escrow.refund() == BUDGET, "refund amount");
-        _balances(0, BUDGET, PRINCIPAL + 8, PRINCIPAL + 12, 17);
+        assertCustodyBalances(0, BUDGET, PRINCIPAL + 8, PRINCIPAL + 12, 17);
         require(b.balanceOf(DONOR) == 0 && b.balanceOf(MANAGER) == 0, "fixed recipient");
         (uint256 amount0, uint256 amount1) = vault.withdrawIdle();
         require(amount0 == PRINCIPAL + 8 && amount1 == PRINCIPAL + 12, "principal and gifts");
@@ -120,14 +126,15 @@ contract AgreementVaultCancellationTest is CustodyFixture {
                 && keccak256(logs[2].data) == keccak256(abi.encode(PRINCIPAL + 8, PRINCIPAL + 12)),
             "withdrawal receipt"
         );
-        _balances(PRINCIPAL + 8, PRINCIPAL + BUDGET + 12, 0, 0, 17);
-        _give(b, address(vault), 3);
+        assertCustodyBalances(PRINCIPAL + 8, PRINCIPAL + BUDGET + 12, 0, 0, 17);
+        giveTokens(b, address(vault), 3);
         vault.withdrawIdle();
-        _balances(PRINCIPAL + 8, PRINCIPAL + BUDGET + 15, 0, 0, 17);
+        assertCustodyBalances(PRINCIPAL + 8, PRINCIPAL + BUDGET + 15, 0, 0, 17);
     }
 
+    /// @notice Block only the escrow refund route and verify the treasury can still receive its principal.
     function testBlockedEscrowToTreasuryRoutePreservesRefundDuringPrincipalExit() public {
-        _fund();
+        fundFixture();
         b.setFault(address(escrow), address(this), CustodyToken.Fault.Revert);
         vault.cancel();
         vm.expectRevert(abi.encodeWithSelector(ExactToken.TransferFailed.selector, address(b)));
@@ -135,16 +142,17 @@ contract AgreementVaultCancellationTest is CustodyFixture {
         escrow.refund();
         require(escrow.refunded() == 0 && escrow.refundable() == BUDGET, "failed refund consumed right");
         vault.withdrawIdle();
-        _balances(PRINCIPAL, PRINCIPAL, 0, 0, BUDGET);
+        assertCustodyBalances(PRINCIPAL, PRINCIPAL, 0, 0, BUDGET);
         require(escrow.refundable() == BUDGET && vault.state() == AgreementVault.State.Cancelled, "independent exit");
         b.setFault(address(escrow), address(this), CustodyToken.Fault.None);
         vm.prank(MANAGER);
         require(escrow.refund() == BUDGET, "restored refund");
-        _balances(PRINCIPAL, PRINCIPAL + BUDGET, 0, 0, 0);
+        assertCustodyBalances(PRINCIPAL, PRINCIPAL + BUDGET, 0, 0, 0);
     }
 
+    /// @notice Fail each recovery leg and check that restoring transfer behavior permits the original rights.
     function testShortRefundAndFailedSecondPrincipalLegKeepRecoveryRights() public {
-        _fund();
+        fundFixture();
         b.setFault(address(escrow), address(this), CustodyToken.Fault.ShortReceipt);
         vault.cancel();
         vm.expectRevert(abi.encodeWithSelector(ExactToken.UnexpectedBalance.selector, address(b), address(this)));
@@ -153,15 +161,16 @@ contract AgreementVaultCancellationTest is CustodyFixture {
         b.setFault(address(vault), address(this), CustodyToken.Fault.FalseReturn);
         vm.expectRevert(abi.encodeWithSelector(ExactToken.TransferFailed.selector, address(b)));
         vault.withdrawIdle();
-        _balances(0, 0, PRINCIPAL, PRINCIPAL, BUDGET);
+        assertCustodyBalances(0, 0, PRINCIPAL, PRINCIPAL, BUDGET);
         require(escrow.refund() == BUDGET, "refund independent of blocked principal");
         b.setFault(address(vault), address(this), CustodyToken.Fault.None);
         vault.withdrawIdle();
-        _balances(PRINCIPAL, PRINCIPAL + BUDGET, 0, 0, 0);
+        assertCustodyBalances(PRINCIPAL, PRINCIPAL + BUDGET, 0, 0, 0);
     }
 
+    /// @notice Probe reentry during principal withdrawal and refund and verify the fixed-party receipts.
     function testReentryDuringBothRecoveries() public {
-        _fund();
+        fundFixture();
         vault.cancel();
         b.setProbe(this);
         probe = Probe.Refund;
@@ -169,6 +178,6 @@ contract AgreementVaultCancellationTest is CustodyFixture {
         probe = Probe.Withdrawal;
         vault.withdrawIdle();
         require(blockedCalls == 2 && escrow.refundable() == 0, "principal callback");
-        _balances(PRINCIPAL, PRINCIPAL + BUDGET, 0, 0, 0);
+        assertCustodyBalances(PRINCIPAL, PRINCIPAL + BUDGET, 0, 0, 0);
     }
 }

@@ -1,0 +1,11 @@
+{
+  "network": "mainnet",
+  "chainId": 130,
+  "rpc": "https://mainnet.unichain.org",
+  "block": 64985000,
+  "blockHash": "0xd6c95ae96e4f67c04cb48b7563ba0c4b377554d217cf7d21e4ec773e7fa29b6b",
+  "core": "0x1f98400000000000000000000000000000000004",
+  "coreHash": "0x0092eba5db5c7b4a3adbeb5708998d71bd09ad0ab2c299e66ea3f39075e1d249",
+  "fixtureAssets": false,
+  "runtimeHardfork": "optimism:karst"
+}

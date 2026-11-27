@@ -30,17 +30,21 @@ export class ReadIssue extends Error {
   }
 }
 
+/** Report that the previous successful observation can no longer be treated as current. */
 const stale = () =>
   new ReadIssue('Stale deployment manifest', 'Reload the manifest from the current local demo run.', true)
+/** Signal an identity failure so callers discard values from the wrong deployment. */
 const mismatch = () =>
   new ReadIssue(
     'Wrong deployment identity',
     'The onchain agreement or its bindings differ from this run. Refresh after checking the local setup.',
     true
   )
+/** Describe a failed transport read from the local fixture. */
 const offline = () =>
   new ReadIssue('Local RPC disconnected', 'Start or reconnect the disposable demo, then refresh.')
 
+/** Read and validate the loopback manifest before using any of its contract addresses. */
 export async function deployment(): Promise<Manifest> {
   let res: Response
   try {
@@ -92,12 +96,15 @@ const client = createPublicClient({
     batch: { batchSize: 64, wait: 1 },
   }),
 })
+/** Compare hex addresses independently of checksum capitalization. */
 const same = (a: Address, b: Address) => a.toLowerCase() === b.toLowerCase()
 
+/** Recheck that the hash at the requested height still matches the displayed observation. */
 export async function confirmBlock(number: bigint, hash: Hash) {
   if ((await client.getBlock({ blockNumber: number })).hash !== hash) throw stale()
 }
 
+/** Read one identity-checked block of contract state and balances for the agreement page. */
 export async function snapshot(m: Manifest) {
   let chainId
   try {
@@ -201,6 +208,7 @@ export async function snapshot(m: Manifest) {
   )
     throw mismatch()
 
+  /** Collect the token metadata and balances used by the pinned financial snapshot. */
   async function token(address: Address) {
     const t = getContract({ address, abi: abi.CustodyToken, client }).read
     const [decimals, vault, escrow] = await Promise.all([

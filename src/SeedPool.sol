@@ -31,6 +31,7 @@ library SeedPool {
     error InvalidSeedRange();
     error TickCapacityExceeded();
 
+    /// @notice Use stored core tick, price and both ticks' capacity to quote upward-rounded seed amounts.
     function inspect(IPoolManager manager, PoolKey memory key, int24 lower, int24 upper, uint128 liquidity)
         internal
         view

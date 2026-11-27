@@ -24,27 +24,15 @@ On a bandwidth-limited fresh checkout, the full upstream v4-core history can exc
 )
 ```
 
-Use the [pinned root setup](../README.md#setup), the pinned core checkout and the existing M6 Python environment (Python 3.12, Web3.py 7.13.0). The checked tools were Anvil/Forge 1.8.7, Node 22.19.0 and npm 11.21.3. From the repository root, use the first command when the Forge artifacts are missing or their source inputs changed.
+Use the toolchain and implementation pin in [README setup](../README.md#setup). Once the pinned protocol sources and Python packages are present, build the checked artifacts and preview from the root.
 
 ```bash
-forge build --offline --use ~/.svm/0.8.26/solc-0.8.26 experiments/m6/Comparison.sol test/fixtures/CustodyFixture.sol test/fixtures/MockOpeningReferenceAdapter.sol experiments/m1/vendor/v4-core/src/PoolManager.sol
-python3 -B scripts/viewer/artifacts.py --check
-# On a fresh workstation, restore the pinned dependencies once. Reuse an existing install.
-npm --prefix viewer ci
-npm --prefix viewer run build
+make prerequisites
+make viewer-install
+make deps sizes artifacts viewer-build
 ```
 
-Start the fixture in a foreground terminal and wait for its Ready message.
-
-```bash
-python3 -Bu scripts/viewer/demo.py
-```
-
-From a second terminal at the repository root, serve the built page. Open `http://127.0.0.1:5173/` using that exact host. Use the built preview for presentation and browser verification. Development mode starts a separate hot-reload WebSocket path. The [viewer dependency assessment](VIEWER-DEPENDENCIES.md) records the scope of the patch and the remaining tooling exposure.
-
-```bash
-npm --prefix viewer run preview
-```
+Start `make demo` in a foreground terminal and wait for **Ready**. Run `make viewer-preview` in a second terminal at the same root and open `http://127.0.0.1:5173/` using that exact host. The presentation uses the built preview. The earlier dependency assessment records the scope of its installed-tree checks. [Viewer dependency assessment](VIEWER-DEPENDENCIES.md)
 
 The launcher reserves port 18547 before starting its own loopback-only Anvil with a private IPC socket and fresh disposable accounts. The runtime manifest is public-safe JSON held in memory at `http://127.0.0.1:18547/deployment.json`. It can be inspected with `curl -fsS http://127.0.0.1:18547/deployment.json`. An occupied port causes startup to fail. Leave its existing owner alone or use the already running viewer deliberately after checking the manifest and run ID.
 
@@ -220,3 +208,8 @@ The funded vault held 2,000 A and 2,000 B. After seeding it held 1,401.826223 of
 React, React DOM, viem, Vite and the React type packages declare MIT licenses. TypeScript and Playwright Core declare Apache-2.0. The lockfile also includes transitive ISC and BSD-3-Clause packages. Dependency packages carry their license texts. Product, fixture and upstream Solidity retain their existing notices. [Dependency lock](../viewer/package-lock.json) · [Upstream attribution](../experiments/m1/README.md#attribution-and-license-scope)
 
 The permitted manager path has an author browser replay. A6 still needs another developer to reproduce the pinned setup and rehearse the full demonstration across fresh runs. The local receipt list lives only for its run. The M6 matched retainer delivered identical tested liquidity. Customer acceptance and economic justification remain open.
+
+
+## Workflow boundary
+
+The launcher performs draft creation, acceptance and funding before the page starts. Browser controls cover prepared post-funding journeys with fixed disposable actors. They are not a general wallet-connected onboarding interface. Run setup and lifecycle contract tests separately when assessing those earlier transitions. In WSL, confirm `command -v node npm` selects Linux executables before building or starting preview.

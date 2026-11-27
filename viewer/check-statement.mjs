@@ -97,6 +97,7 @@ try {
       (n) => 'function ' + n + '() view returns (uint256)'
     ),
   ])
+  /** Read an independent contract value at the receipt or statement block. */
   const read = (address, functionName, args) =>
     client.readContract({ abi, address, functionName, args, blockNumber: before.number })
   assert.equal(String(await read(r.addresses.hook, 'projectedSeconds')), r.derived.q)

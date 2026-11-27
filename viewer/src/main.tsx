@@ -19,11 +19,16 @@ const reasons = [
   'Range outside permitted bounds',
   'Tick outside position',
 ]
+/** Convert base units using the token's declared decimal scale. */
 const units = (n: bigint, d: number) => formatUnits(n, d)
+/** Format integer counters for display without floating-point conversion. */
 const number = (n: bigint) => n.toLocaleString('en-US')
+/** Show unset timestamps separately from chain time in seconds. */
 const timestamp = (n: bigint) => (n === 0n ? 'Unset' : n.toString() + ' s')
+/** Display a half-open tick interval with its upper edge excluded. */
 const range = (l: number, u: number) => '[' + l + ', ' + u + ')'
 
+/** Refresh the agreement snapshot and manage stale or invalidated read states. */
 function useAgreement() {
   const [data, setData] = useState<Snapshot>()
   const [issue, setIssue] = useState<ReadIssue>()
@@ -76,6 +81,7 @@ function useAgreement() {
   return { data, issue, busy, refresh }
 }
 
+/** Render the supplied state labels and their observed values as a definition list. */
 function Rows({ items }: { items: [string, ReactNode][] }) {
   return (
     <dl>
@@ -88,6 +94,7 @@ function Rows({ items }: { items: [string, ReactNode][] }) {
     </dl>
   )
 }
+/** Group the indicated agreement fields under their accessible section heading. */
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
     <section id={id} className="panel">
@@ -96,9 +103,11 @@ function Section({ id, title, children }: { id: string; title: string; children:
     </section>
   )
 }
+/** Render the pool position, service clock, custody and payment rights at one block. */
 function Data({ s }: { s: Snapshot }) {
   const activeOnce = s.start !== 0n
   const livePosition = s.position !== zeroHash
+  /** Format compensation in token B's actual decimal denomination. */
   const b = (n: bigint) => units(n, s.tokenB.decimals) + ' B'
   const [qualifies, bits] = s.qualification
   const duration = BigInt(s.terms.parameters.duration)
@@ -230,6 +239,7 @@ function Data({ s }: { s: Snapshot }) {
   )
 }
 
+/** Connect the read lifecycle to the agreement page and refresh controls. */
 function App() {
   const { data, issue, busy, refresh } = useAgreement()
   return (

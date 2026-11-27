@@ -6,7 +6,7 @@
 
 The sole adapter method takes no arguments and returns nine static ABI words. The vault rejects a failed read or an unexpected payload length. ABI decoding checks the field encodings. The adapter asserts source identity, base A, quote B, their whole-token decimals, feed decimals, signed answer, observation timestamp and completion. The vault compares those identities and scales to the accepted terms, checks decimals on both token contracts, requires completion and a positive answer, and checks a nonzero timestamp with age from 0 through 60 seconds inclusive against block time. [Adapter interface](../src/IOpeningReferenceAdapter.sol)
 
-The local mock lets a test publish an observation. A consistent assertion can still contain a false price or time. Trust in its source, observation process and completion flag comes from the accepted adapter. A live source, its provenance and its freshness policy remain open. [Mock adapter](../test/fixtures/MockOpeningReferenceAdapter.sol) and [validation tests](../test/OpeningReference.t.sol).
+The local mock lets a test publish an observation. A consistent assertion can still contain a false price or time. Trust in its source, observation process and completion flag comes from the accepted adapter. A live source, its provenance and its freshness policy remain open. [Mock adapter](../test/fixtures/MockOpeningReferenceAdapter.sol) and [validation tests](../test/integration/OpeningReference.t.sol).
 
 ## Exact price and supported domain
 
@@ -28,7 +28,7 @@ TickMath uses fixed-point multiplication and rounds up its final conversion to a
 
 ## Independent verification and use at activation
 
-The Python standard-library oracle walks the grid in steps of 60 from zero in both directions. Each step uses the exact fraction `10001^60 / 10000^60` or its reciprocal and outward integer bounds at 90 decimal places. It independently certifies all 29,575 floors and emits three SHA-256 digests of ascending 32-byte values. Forge recomputes the digests from Solidity and checks explicit feed vectors. Its fuzz property checks both outer inequalities and both neighboring ticks. The exhaustive scan runs only in verification. [Independent oracle](../scripts/check_opening_grid.py) and [Forge tests](../test/OpeningBand.t.sol).
+The Python standard-library oracle walks the grid in steps of 60 from zero in both directions. Each step uses the exact fraction `10001^60 / 10000^60` or its reciprocal and outward integer bounds at 90 decimal places. It independently certifies all 29,575 floors and emits three SHA-256 digests of ascending 32-byte values. Forge recomputes the digests from Solidity and checks explicit feed vectors. Its fuzz property checks both outer inequalities and both neighboring ticks. The exhaustive scan runs only in verification. [Independent oracle](../scripts/check_opening_grid.py) and [Forge tests](../test/unit/OpeningBand.t.sol).
 
 | Feed answer | Independently derived band |
 | ---: | --- |

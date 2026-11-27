@@ -29,3 +29,10 @@ Thumbs.db
 
 # Isolated closeout mutations and native review evidence
 /.local/m5/
+
+# Disposable verification browser, logs and replay evidence
+/.local/verification/
+
+# Private operator configs, disposable deployment manifests and local comparisons
+/.local/ops/
+__pycache__/

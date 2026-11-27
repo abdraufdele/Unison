@@ -11,6 +11,7 @@ import {IC1Token} from "../../src/ExactToken.sol";
 
 /// @dev Test only. Acknowledges the two dispatched callbacks; admits every LP and measures no service.
 contract TestOnlySeedHook {
+    /// @notice Acknowledge the preflight harness add callback so a quote can be compared with settlement.
     function beforeAddLiquidity(address, PoolKey calldata, IPoolManager.ModifyLiquidityParams calldata, bytes calldata)
         external
         pure
@@ -19,6 +20,7 @@ contract TestOnlySeedHook {
         return IHooks.beforeAddLiquidity.selector;
     }
 
+    /// @notice Acknowledge the harness swap callback and return zero extra delta.
     function afterSwap(address, PoolKey calldata, IPoolManager.SwapParams calldata, BalanceDelta, bytes calldata)
         external
         pure
@@ -35,27 +37,32 @@ contract CoreSeedHarness is IUnlockCallback {
     PoolKey private key;
     bool private executing;
 
+    /// @notice Bind the supplied fixture dependencies for subsequent calls.
     constructor(IPoolManager core, PoolKey memory fixtureKey) {
         manager = core;
         key = fixtureKey;
         fixture = msg.sender;
     }
 
+    /// @notice Enter core to add the requested fixture liquidity and settle both currencies.
     function add(int24 lower, int24 upper, uint128 liquidity) external returns (BalanceDelta principal) {
-        return _unlock(abi.encode(lower, upper, liquidity, uint160(0), false));
+        return unlockCore(abi.encode(lower, upper, liquidity, uint160(0), false));
     }
 
+    /// @notice Trade through the harness toward the lower sqrt-price limit.
     function swapDownTo(uint160 limit) external {
         require(limit != 0);
-        _unlock(abi.encode(int24(0), int24(0), uint128(0), limit, true));
+        unlockCore(abi.encode(int24(0), int24(0), uint128(0), limit, true));
     }
 
+    /// @notice Trade through the harness toward the upper sqrt-price limit.
     function swapUpTo(uint160 limit) external {
         require(limit != 0);
-        _unlock(abi.encode(int24(0), int24(0), uint128(0), limit, false));
+        unlockCore(abi.encode(int24(0), int24(0), uint128(0), limit, false));
     }
 
-    function _unlock(bytes memory operation) private returns (BalanceDelta) {
+    /// @notice Encode the fixture operation for settlement inside the core unlock.
+    function unlockCore(bytes memory operation) private returns (BalanceDelta) {
         require(msg.sender == fixture && !executing);
         executing = true;
         bytes memory result = manager.unlock(operation);
@@ -63,6 +70,7 @@ contract CoreSeedHarness is IUnlockCallback {
         return abi.decode(result, (BalanceDelta));
     }
 
+    /// @notice Authenticate the fixture core and perform the requested harness leg and settlement.
     function unlockCallback(bytes calldata operation) external returns (bytes memory) {
         require(msg.sender == address(manager) && executing);
         (int24 lower, int24 upper, uint128 liquidity, uint160 limit, bool zeroForOne) =
@@ -76,12 +84,13 @@ contract CoreSeedHarness is IUnlockCallback {
         } else {
             net = manager.swap(key, IPoolManager.SwapParams(zeroForOne, -int256(1e15), limit), "");
         }
-        _settle(key.currency0, net.amount0());
-        _settle(key.currency1, net.amount1());
+        settleCurrency(key.currency0, net.amount0());
+        settleCurrency(key.currency1, net.amount1());
         return abi.encode(net - fees);
     }
 
-    function _settle(Currency currency, int128 delta) private {
+    /// @notice Resolve the harness currency delta before the core unlock returns.
+    function settleCurrency(Currency currency, int128 delta) private {
         if (delta < 0) {
             manager.sync(currency);
             uint128 due = uint128(-delta);

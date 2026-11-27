@@ -1,16 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {AgreementVault} from "../src/AgreementVault.sol";
-import {IOpeningReferenceAdapter} from "../src/IOpeningReferenceAdapter.sol";
-import {OpeningBand} from "../src/OpeningBand.sol";
-import {CustodyFixture} from "./fixtures/CustodyFixture.sol";
-import {MockOpeningReferenceAdapter} from "./fixtures/MockOpeningReferenceAdapter.sol";
+import {AgreementVault} from "../../src/AgreementVault.sol";
+import {IOpeningReferenceAdapter} from "../../src/IOpeningReferenceAdapter.sol";
+import {OpeningBand} from "../../src/OpeningBand.sol";
+import {CustodyFixture} from "../fixtures/CustodyFixture.sol";
+import {MockOpeningReferenceAdapter} from "../fixtures/MockOpeningReferenceAdapter.sol";
 
 interface VmReference {
+    /// @notice Return fixture data for the selected contract read.
     function mockCall(address callee, bytes calldata data, bytes calldata result) external;
+    /// @notice Make the selected read revert with the supplied error bytes.
     function mockCallRevert(address callee, bytes calldata data, bytes calldata reason) external;
+    /// @notice Require the selected reference read to occur during the next operation.
     function expectCall(address callee, bytes calldata data, uint64 count) external;
+    /// @notice Require the next operation to revert under the selected Foundry expectation.
     function expectRevert() external;
 }
 
@@ -20,7 +24,8 @@ contract OpeningReferenceTest is CustodyFixture {
     address private constant SOURCE = address(0xc100);
     MockOpeningReferenceAdapter private adapter;
 
-    function _configure() private returns (IOpeningReferenceAdapter.Observation memory sample) {
+    /// @notice Bind the test's pool or opening reference before inspecting the current proposal.
+    function configureFixture() private returns (IOpeningReferenceAdapter.Observation memory sample) {
         vm.warp(NOW);
         adapter = new MockOpeningReferenceAdapter();
         AgreementVault.Bindings memory bindings = vault.currentTerms().bindings;
@@ -31,11 +36,12 @@ contract OpeningReferenceTest is CustodyFixture {
         adapter.publish(sample);
     }
 
+    /// @notice Read the current accepted fixture observation in both eligible states and verify adapter call counts.
     function testAcceptedAndFundedPreviewReadsCurrentAdapterOncePerCall() public {
-        IOpeningReferenceAdapter.Observation memory sample = _configure();
+        IOpeningReferenceAdapter.Observation memory sample = configureFixture();
         vm.expectRevert(AgreementVault.NotAccepted.selector);
         vault.previewOpeningReference();
-        _accept();
+        acceptTerms();
         referenceVm.expectCall(address(adapter), abi.encodeCall(adapter.observation, ()), 2);
         (IOpeningReferenceAdapter.Observation memory actual, int24 lo, int24 hi) = vault.previewOpeningReference();
         require(keccak256(abi.encode(actual)) == keccak256(abi.encode(sample)), "observation");
@@ -49,23 +55,25 @@ contract OpeningReferenceTest is CustodyFixture {
         require(vault.termsHash() == h && escrow.refundable() == 0, "agreement changed");
     }
 
+    /// @notice Revise the reference identity, obtain both fresh consents and verify the new source is used.
     function testRevisionRequiresBothNewApprovalsAndUsesNewSource() public {
-        _configure();
-        _accept();
+        configureFixture();
+        acceptTerms();
         AgreementVault.Bindings memory bindings = vault.currentTerms().bindings;
         bindings.referenceSource = address(0xc101);
         vault.revise(bindings);
         vault.accept(vault.termsHash());
         vm.expectRevert(AgreementVault.NotAccepted.selector);
         vault.previewOpeningReference();
-        _accept();
+        acceptTerms();
         vm.expectRevert(AgreementVault.ReferenceMismatch.selector);
         vault.previewOpeningReference();
     }
 
-    function testFreshnessBoundaries() public {
-        IOpeningReferenceAdapter.Observation memory sample = _configure();
-        _accept();
+    /// @notice Exercise the last fresh and first stale timestamps against the fixed maximum age.
+    function testOpeningReferenceAcceptsLastFreshSecondAndRejectsStaleData() public {
+        IOpeningReferenceAdapter.Observation memory sample = configureFixture();
+        acceptTerms();
         for (uint256 age = 59; age <= 61; ++age) {
             sample.updatedAt = NOW - age;
             adapter.publish(sample);
@@ -74,54 +82,57 @@ contract OpeningReferenceTest is CustodyFixture {
         }
     }
 
+    /// @notice Return nonpositive, incomplete, future or invalid-time observations and require preview rejection.
     function testRejectsInvalidAnswerTimeAndCompletion() public {
-        IOpeningReferenceAdapter.Observation memory sample = _configure();
-        _accept();
+        IOpeningReferenceAdapter.Observation memory sample = configureFixture();
+        acceptTerms();
         sample.answer = 0;
-        _reject(sample, AgreementVault.InvalidObservation.selector);
+        expectInvalidObservation(sample, AgreementVault.InvalidObservation.selector);
         sample.answer = -1;
-        _reject(sample, AgreementVault.InvalidObservation.selector);
+        expectInvalidObservation(sample, AgreementVault.InvalidObservation.selector);
         sample.answer = type(int256).max;
-        _reject(sample, OpeningBand.UnrepresentablePrice.selector);
+        expectInvalidObservation(sample, OpeningBand.UnrepresentablePrice.selector);
         sample.answer = 100_000_000;
         sample.updatedAt = 0;
-        _reject(sample, AgreementVault.InvalidObservation.selector);
+        expectInvalidObservation(sample, AgreementVault.InvalidObservation.selector);
         sample.updatedAt = NOW + 1;
-        _reject(sample, AgreementVault.InvalidObservation.selector);
+        expectInvalidObservation(sample, AgreementVault.InvalidObservation.selector);
         sample.updatedAt = NOW;
         sample.complete = false;
-        _reject(sample, AgreementVault.InvalidObservation.selector);
+        expectInvalidObservation(sample, AgreementVault.InvalidObservation.selector);
     }
 
+    /// @notice Vary the source, base/quote order and decimal metadata and require each mismatch to fail.
     function testRejectsWrongSourcePairOrientationAndDenominations() public {
-        IOpeningReferenceAdapter.Observation memory sample = _configure();
-        _accept();
+        IOpeningReferenceAdapter.Observation memory sample = configureFixture();
+        acceptTerms();
         sample.source = address(7);
-        _reject(sample, AgreementVault.ReferenceMismatch.selector);
+        expectInvalidObservation(sample, AgreementVault.ReferenceMismatch.selector);
         sample.source = SOURCE;
         sample.base = address(7);
-        _reject(sample, AgreementVault.ReferenceMismatch.selector);
+        expectInvalidObservation(sample, AgreementVault.ReferenceMismatch.selector);
         sample.base = address(a);
         sample.quote = address(7);
-        _reject(sample, AgreementVault.ReferenceMismatch.selector);
+        expectInvalidObservation(sample, AgreementVault.ReferenceMismatch.selector);
         sample.base = address(b);
         sample.quote = address(a);
-        _reject(sample, AgreementVault.ReferenceMismatch.selector);
+        expectInvalidObservation(sample, AgreementVault.ReferenceMismatch.selector);
         sample.base = address(a);
         sample.quote = address(b);
         sample.baseDecimals = 18;
-        _reject(sample, AgreementVault.ReferenceMismatch.selector);
+        expectInvalidObservation(sample, AgreementVault.ReferenceMismatch.selector);
         sample.baseDecimals = 6;
         sample.quoteDecimals = 18;
-        _reject(sample, AgreementVault.ReferenceMismatch.selector);
+        expectInvalidObservation(sample, AgreementVault.ReferenceMismatch.selector);
         sample.quoteDecimals = 6;
         sample.feedDecimals = 6;
-        _reject(sample, AgreementVault.ReferenceMismatch.selector);
+        expectInvalidObservation(sample, AgreementVault.ReferenceMismatch.selector);
     }
 
+    /// @notice Alter actual token decimals while preserving adapter metadata and require the cross-check.
     function testReadsTokenDecimalsFromBothActualContracts() public {
-        _configure();
-        _accept();
+        configureFixture();
+        acceptTerms();
         a.setDecimals(9);
         vm.expectRevert(abi.encodeWithSelector(AgreementVault.InvalidDecimals.selector, address(a)));
         vault.previewOpeningReference();
@@ -131,9 +142,10 @@ contract OpeningReferenceTest is CustodyFixture {
         vault.previewOpeningReference();
     }
 
+    /// @notice Inject reverting or malformed adapter responses and check that no reference is fixed.
     function testRejectsRevertingTruncatedTrailingAndNoncanonicalAdapterData() public {
-        IOpeningReferenceAdapter.Observation memory sample = _configure();
-        _accept();
+        IOpeningReferenceAdapter.Observation memory sample = configureFixture();
+        acceptTerms();
         bytes memory query = abi.encodeCall(adapter.observation, ());
         referenceVm.mockCallRevert(address(adapter), query, hex"abcd");
         vm.expectRevert(AgreementVault.UnreadableReference.selector);
@@ -151,7 +163,8 @@ contract OpeningReferenceTest is CustodyFixture {
         vault.previewOpeningReference();
     }
 
-    function _reject(IOpeningReferenceAdapter.Observation memory sample, bytes4 reason) private {
+    /// @notice Publish the selected invalid observation and require the matching preview error.
+    function expectInvalidObservation(IOpeningReferenceAdapter.Observation memory sample, bytes4 reason) private {
         adapter.publish(sample);
         vm.expectRevert(reason);
         vault.previewOpeningReference();

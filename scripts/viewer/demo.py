@@ -9,7 +9,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from web3 import IPCProvider, Web3
-from artifacts import build_id, fixture
+from artifacts import buildId, fixture
 from statement import EvidenceError, statement
 from journey import Conflict, Journey, check
 
@@ -21,13 +21,16 @@ READ_METHODS = {"eth_chainId", "eth_call", "eth_getCode", "eth_getBlockByNumber"
 
 
 class Reader(BaseHTTPRequestHandler):
+    # Suppress the default HTTP request log for this loopback reader.
     def log_message(self, *args):
         pass
 
+    # Check the request host and origin against the loopback viewer configuration.
     def allowed(self):
         return self.headers.get_all("Host") == [f"{HOST}:{PORT}"] and self.headers.get_all("Origin") in (None, [ORIGIN])
 
-    def send_json(self, status, data):
+    # Encode the response with the reader's explicit content and origin headers.
+    def sendJson(self, status, data):
         body = json.dumps(data).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
@@ -39,44 +42,47 @@ class Reader(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    # Answer the browser preflight for the local reader routes.
     def do_OPTIONS(self):
-        self.send_json(200 if self.allowed() else 403, None)
+        self.sendJson(200 if self.allowed() else 403, None)
 
+    # Serve the manifest, statement or current control status for the active run.
     def do_GET(self):
         if not self.allowed():
-            return self.send_json(403, None)
+            return self.sendJson(403, None)
         if self.path == "/deployment.json":
-            return self.send_json(200, self.server.manifest)
+            return self.sendJson(200, self.server.manifest)
         if self.path.startswith("/statement/"):
             match = re.fullmatch(r"/statement/(0x[0-9a-f]{64})/([0-9]{1,12})/(0x[0-9a-f]{64})", self.path)
             if not match:
-                return self.send_json(400, {"message": "Expected run ID, as-of number and block hash."})
+                return self.sendJson(400, {"message": "Expected run ID, as-of number and block hash."})
             session = self.server.journey
             try:
                 with session.lock:
                     data = statement(session, match[1], int(match[2]), match[3])
             except (EvidenceError, ValueError) as err:
-                return self.send_json(409, {"message": str(err)})
+                return self.sendJson(409, {"message": str(err)})
             except Exception:
-                return self.send_json(503, {"message": "Historical RPC or ABI decoding failed. Check the owned archive and retry."})
-            return self.send_json(200, data)
+                return self.sendJson(503, {"message": "Historical RPC or ABI decoding failed. Check the owned archive and retry."})
+            return self.sendJson(200, data)
         if self.path == "/controls" and self.headers.get_all("Origin") == [ORIGIN]:
             session = self.server.journey
             with session.lock:
                 status = session.status()
-            return self.send_json(200, status)
-        self.send_json(404, None)
+            return self.sendJson(200, status)
+        self.sendJson(404, None)
 
+    # Check the control request identity before processing a state-changing demo step.
     def control(self):
         session = self.server.journey
         if (not self.allowed() or self.headers.get_all("Origin") != [ORIGIN]
                 or self.headers.get_content_type() != "application/json"
                 or self.headers.get_all("X-Unison-CSRF") != [session.csrf]):
-            return self.send_json(403, {"message": "Control origin or run token rejected. Refresh this run."})
+            return self.sendJson(403, {"message": "Control origin or run token rejected. Refresh this run."})
         try:
             size = int(self.headers.get("Content-Length", "0"))
             if not 0 < size <= 1024:
-                return self.send_json(413, {"message": "Invalid action size."})
+                return self.sendJson(413, {"message": "Invalid action size."})
             body = json.loads(self.rfile.read(size))
             reset = self.path == "/controls/reset"
             field = "confirmation" if reset else "action"
@@ -86,9 +92,9 @@ class Reader(BaseHTTPRequestHandler):
             if not isinstance(body, dict) or set(body) != fields or not isinstance(body[field], str):
                 raise ValueError("Invalid action fields.")
         except (ValueError, TypeError):
-            return self.send_json(400, {"message": "Expected a fixed action and the current run and version."})
+            return self.sendJson(400, {"message": "Expected a fixed action and the current run and version."})
         if not session.lock.acquire(blocking=False):
-            return self.send_json(409, {"message": "Another action is in progress. Refresh its receipt."})
+            return self.sendJson(409, {"message": "Another action is in progress. Refresh its receipt."})
         try:
             if reset:
                 session.validate(body)
@@ -99,27 +105,28 @@ class Reader(BaseHTTPRequestHandler):
             else:
                 response = session.perform(body)
         except (Conflict, ValueError) as exc:
-            return self.send_json(409, {"message": str(exc)})
+            return self.sendJson(409, {"message": str(exc)})
         except Exception:
-            return self.send_json(503, {"message": "Controller could not verify the action. Refresh the receipt history before continuing."})
+            return self.sendJson(503, {"message": "Controller could not verify the action. Refresh the receipt history before continuing."})
         finally:
             session.lock.release()
-        self.send_json(200, response)
+        self.sendJson(200, response)
 
+    # Dispatch only supported local control or read RPC requests.
     def do_POST(self):
         if self.path in ("/controls/action", "/controls/reset"):
             return self.control()
         if not self.allowed() or self.path != "/rpc":
-            return self.send_json(403, None)
+            return self.sendJson(403, None)
         try:
             size = int(self.headers.get("Content-Length", "0"))
             if not 0 < size <= 131072:
-                return self.send_json(413, None)
+                return self.sendJson(413, None)
             payload = json.loads(self.rfile.read(size))
             batch = isinstance(payload, list)
             calls = payload if batch else [payload]
             if not 0 < len(calls) <= 128:
-                return self.send_json(400, None)
+                return self.sendJson(400, None)
             replies = []
             for call in calls:
                 method = call["method"]
@@ -128,17 +135,19 @@ class Reader(BaseHTTPRequestHandler):
                 else:
                     result = self.server.reader.make_request(method, call.get("params", []))
                 replies.append({**result, "jsonrpc": "2.0", "id": call["id"]})
-            self.send_json(200, replies if batch else replies[0])
+            self.sendJson(200, replies if batch else replies[0])
         except (KeyError, ValueError, TypeError):
-            self.send_json(400, None)
+            self.sendJson(400, None)
         except (OSError, TimeoutError):
-            self.send_json(503, {"message": "Owned Anvil unavailable"})
+            self.sendJson(503, {"message": "Owned Anvil unavailable"})
 
 
-def block_hash(block):
+# Encode the block hash in the manifest's canonical hex form.
+def blockHash(block):
     return Web3.to_hex(block.hash)
 
 
+# Bind the run marker, endpoint, anchor and deployed runtimes to the current fixture build.
 def manifest(run, marker):
     addresses = {key: obj.address for key, obj in {
         "vault": run.v, "escrow": run.esc, "hook": run.hook, "core": run.core,
@@ -148,17 +157,18 @@ def manifest(run, marker):
     addresses["adapter"] = vault.functions.currentTerms().call().bindings.referenceAdapter
     block = run.w.eth.get_block("latest")
     return {"schema": 1, "endpoint": BASE + "/rpc", "chainId": 31337, "runId": Web3.to_hex(marker),
-            "anchor": {"number": str(block.number), "hash": block_hash(block)},
-            "buildId": build_id(), "addresses": addresses,
+            "anchor": {"number": str(block.number), "hash": blockHash(block)},
+            "buildId": buildId(), "addresses": addresses,
             "codeHashes": {k: Web3.to_hex(Web3.keccak(run.w.eth.get_code(a))) for k, a in addresses.items()}}
 
 
+# Recheck the owned IPC chain and deployment marker before accepting demo controls.
 def verify(server, run, deployment):
     w = run.w
     if (server.server_address != (HOST, PORT) or server.manifest != deployment
             or w.client_version != "anvil/v1.8.7" or w.eth.chain_id != deployment["chainId"]
             or w.eth.block_number < int(deployment["anchor"]["number"])
-            or block_hash(w.eth.get_block(int(deployment["anchor"]["number"]))) != deployment["anchor"]["hash"]
+            or blockHash(w.eth.get_block(int(deployment["anchor"]["number"]))) != deployment["anchor"]["hash"]
             or Web3.to_hex(run.v.functions.agreementId().call()) != deployment["runId"]):
         raise ValueError("Run identity changed. Stop this launcher and start a new owned run.")
 
@@ -180,8 +190,10 @@ def verify(server, run, deployment):
               for key, addr in a.items()), "Runtime code changed.")
 
 
+# Read the current fixture state at one chain head for the launcher display.
 def inspect(run):
     block = run.w.eth.block_number
+    # Call the selected contract view at the snapshot block.
     def read(fn):
         return fn.call(block_identifier=block)
     live = run.router.functions.position(run.key, run.v.address, read(run.v.functions.positionLower()),
@@ -197,12 +209,14 @@ def inspect(run):
     print(json.dumps(fields), flush=True)
 
 
-def terminal_input(events):
+# Queue operator input for the launcher without holding the chain session lock.
+def terminalInput(events):
     for line in sys.stdin:
         events.put(("command", line.strip()))
     events.put(("command", "stop"))
 
 
+# Handle commands for the current run, including identity-bound reset and shutdown.
 def commands(server, session):
     run_id = session.manifest["runId"]
     print(f"Ready {BASE}/deployment.json\nRun {run_id}\nCommands: inspect, activate, interrupt, terminate, reset <run-id>, stop", flush=True)
@@ -240,10 +254,11 @@ def commands(server, session):
             conn.close()
 
 
+# Start the owned local demo and release its server and chain resources on exit.
 def main():
     with ThreadingHTTPServer((HOST, PORT), Reader) as server:
         server.events = queue.Queue()
-        threading.Thread(target=terminal_input, args=(server.events,), daemon=True).start()
+        threading.Thread(target=terminalInput, args=(server.events,), daemon=True).start()
         while True:
             with fixture.chain(viewer=True) as w:
                 run = fixture.Run(w)

@@ -10,10 +10,12 @@ library ServiceRange {
     int24 internal constant EXTENSION = 120;
     uint128 internal constant MIN_LIQUIDITY = 100_000_000_000;
 
+    /// @notice Check whether the proposed position spans both accepted service-band edges.
     function covers(int24 lower, int24 upper, int24 bandLower, int24 bandUpper) internal pure returns (bool) {
         return lower <= bandLower && upper >= bandUpper;
     }
 
+    /// @notice Check alignment, maximum width and edge extension against the fixed C1 range rules.
     function permitted(int24 lower, int24 upper, int24 bandLower, int24 bandUpper) internal pure returns (bool) {
         return lower >= bandLower - EXTENSION && upper <= bandUpper + EXTENSION
             && lower >= TickMath.minUsableTick(SPACING) && upper <= TickMath.maxUsableTick(SPACING)

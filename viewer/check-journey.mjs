@@ -34,7 +34,9 @@ try {
   page.on('request', (r) => {
     if (r.method() === 'POST' && r.url().includes('/controls/')) writes.push(r.url())
   })
+  /** Read the launcher identity so resets can be compared across the replay. */
   const manifest = async () => (await page.request.get(manifestUrl)).json()
+  /** Read the current local controller journal for comparison with the browser. */
   const status = async () =>
     (await page.request.get(base + '/controls', { headers: { Origin: origin } })).json()
   let action = 'verify funded run'
@@ -62,14 +64,17 @@ try {
         .catch(() => undefined),
     })
   }
+  /** Send a test control request with the selected origin and run credentials. */
   const post = (url, data, token, headers = {}) =>
     page.request.post(url, { data, headers: { Origin: origin, 'X-Unison-CSRF': token, ...headers } })
+  /** Locate the value associated with an exact state label. */
   const field = (name) =>
     page
       .getByRole('term', { name: '', exact: true })
       .filter({ hasText: new RegExp('^' + name + '$') })
       .locator('..')
       .locator('dd')
+  /** Wait for the page to show the expected observed block. */
   const verifyBlock = async (n) =>
     page.waitForFunction(
       (n) =>
@@ -138,6 +143,7 @@ try {
     { times: 1 }
   )
 
+  /** Execute one visible action and verify its mined transaction against the local chain. */
   async function step(id) {
     action = id
     await page.locator('[data-action="' + id + '"]').click()
@@ -161,6 +167,7 @@ try {
     assert.equal(tx.from.toLowerCase(), r.sender.toLowerCase())
     assert.equal(tx.to.toLowerCase(), r.target.toLowerCase())
     assert.equal(mined.timestamp, BigInt(r.time))
+    /** Read an independent contract value at the receipt or statement block. */
     const read = (address, functionName, args) =>
       rpc.readContract({ address, abi, functionName, args, blockNumber: mined.number })
     const a = m.addresses
@@ -170,6 +177,7 @@ try {
     for (const name of ['earned', 'claimed', 'reserved', 'refunded', 'refundable'])
       values[name] = await read(a.escrow, name)
     const q = await read(a.hook, 'projectedSeconds')
+    /** Read actual token base units held by the selected account. */
     const balance = (token, who) => read(token, 'balanceOf', [who])
     const [managerB, escrowB, treasuryA, treasuryB, vaultA, vaultB] = await Promise.all([
       balance(a.tokenB, manager),
@@ -210,6 +218,7 @@ try {
   assert.equal((await step('trade')).q, 120n)
   assert.equal((await step('claim40')).managerB, 40_000_000n)
   assert.equal((await step('checkpoint')).q, 180n)
+  /** Select the independently read financial quantities for comparison. */
   const independentRights = ({ r, ...values }) => values
   const blocked = await step('block'),
     failed = await step('failedClaim')

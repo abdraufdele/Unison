@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {AgreementVault} from "../src/AgreementVault.sol";
-import {CompensationEscrow} from "../src/CompensationEscrow.sol";
-import {ExactToken} from "../src/ExactToken.sol";
-import {Operation} from "../src/ServiceHook.sol";
-import {CustodyToken} from "./fixtures/CustodyFixture.sol";
-import {PositionAccountingFixture} from "./fixtures/PositionAccountingFixture.sol";
+import {AgreementVault} from "../../src/AgreementVault.sol";
+import {CompensationEscrow} from "../../src/CompensationEscrow.sol";
+import {ExactToken} from "../../src/ExactToken.sol";
+import {Operation} from "../../src/ServiceHook.sol";
+import {CustodyToken} from "../fixtures/CustodyFixture.sol";
+import {PositionAccountingFixture} from "../fixtures/PositionAccountingFixture.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
 
@@ -40,32 +40,37 @@ contract CloseoutReconciliationTest is PositionAccountingFixture {
 
     event log_named_uint(string key, uint256 value);
 
-    function _idle(Asset storage asset) private view returns (uint256) {
+    /// @notice Calculate treasury-owned idle units from modeled deposits, legs, fees, gifts and receipts.
+    function modeledIdle(Asset storage asset) private view returns (uint256) {
         return PRINCIPAL + asset.removed + asset.gifts + asset.fees - asset.spent - asset.received;
     }
 
-    function _position() private view returns (uint128 actual) {
+    /// @notice Read position liquidity at the modeled ticks and salt directly from core.
+    function corePositionLiquidity() private view returns (uint128 actual) {
         (actual,,) = core.getPositionInfo(key.toId(), address(vault), -edge, edge, bytes32(salt));
     }
 
-    function _id() private view returns (bytes32) {
+    /// @notice Reconstruct the active owner/ticks/salt identity independently of the vault getter.
+    function modeledIdentity() private view returns (bytes32) {
         return
             liquidity == 0 ? bytes32(0) : keccak256(abi.encode(key.toId(), address(vault), -edge, edge, bytes32(salt)));
     }
 
-    function _advance(uint256 next) private {
+    /// @notice Credit only modeled qualifying time before expiry or stop, then advance chain time.
+    function advanceLedgerTime(uint256 next) private {
         require(next >= time);
         if (time < END && stop == 0) {
             (, int24 tick,,) = core.getSlot0(key.toId());
             // The generated identities are the seed or its permitted extension, both covering [-120,120).
-            if (_position() >= SEED && tick >= -edge && tick < edge) q += (next < END ? next : END) - time;
+            if (corePositionLiquidity() >= SEED && tick >= -edge && tick < edge) q += (next < END ? next : END) - time;
         }
         time = next;
         vm.warp(next);
-        _check();
+        assertLedger();
     }
 
-    function _check() private view {
+    /// @notice Reconcile both asset ledgers, core identity, service and each fixed recipient's rights.
+    function assertLedger() private view {
         bool terminal = stop != 0 || time >= END;
         uint256 earned = BUDGET * q / 300;
         require(q <= 300 && paid <= earned && earned <= BUDGET && returnedBudget <= BUDGET - earned, "model limits");
@@ -79,11 +84,15 @@ contract CloseoutReconciliationTest is PositionAccountingFixture {
         if (terminal) require(accounted == earned - paid + refund, "terminal conservation");
         require(b.balanceOf(address(escrow)) == accounted + budgetGifts && b.balanceOf(MANAGER) == paid);
         require(b.balanceOf(DONOR) == 0 && a.balanceOf(MANAGER) == 0);
-        require(vault.positionId() == _id() && hook.positionId() == _id() && _position() == liquidity);
+        require(
+            vault.positionId() == modeledIdentity() && hook.positionId() == modeledIdentity()
+                && corePositionLiquidity() == liquidity
+        );
         require(vault.positionLiquidity() == liquidity && vault.positionSalt() == bytes32(salt));
         require(vault.lastAdjustment() == lastAdjustment && hook.pendingAdd() == 0, "authority/cooldown");
         require(
-            a.balanceOf(address(vault)) == _idle(assetA) && b.balanceOf(address(vault)) == _idle(assetB), "idle assets"
+            a.balanceOf(address(vault)) == modeledIdle(assetA) && b.balanceOf(address(vault)) == modeledIdle(assetB),
+            "idle assets"
         );
         require(
             a.balanceOf(address(this)) == assetA.received
@@ -92,7 +101,8 @@ contract CloseoutReconciliationTest is PositionAccountingFixture {
         );
     }
 
-    function _rollbackState() private view returns (bytes32) {
+    /// @notice Digest fee growth, liquidity, custody and clock fields for atomicity checks.
+    function snapshotCoreAndClock() private view returns (bytes32) {
         (uint128 l, uint256 fa, uint256 fb) =
             core.getPositionInfo(key.toId(), address(vault), -edge, edge, bytes32(salt));
         return keccak256(
@@ -112,16 +122,17 @@ contract CloseoutReconciliationTest is PositionAccountingFixture {
         );
     }
 
-    function _claim(bool blockFirst) private {
+    /// @notice Pull the manager's entitlement and compare the resulting transfer with the fixture ledger.
+    function claimPayment(bool blockFirst) private {
         uint256 target = BUDGET * q / 300;
         if (blockFirst) {
             require(target > paid);
-            bytes32 beforeOp = _rollbackState();
+            bytes32 beforeOp = snapshotCoreAndClock();
             b.setFault(address(escrow), MANAGER, CustodyToken.Fault.Revert);
             vm.expectRevert(abi.encodeWithSelector(ExactToken.TransferFailed.selector, address(b)));
             escrow.claim();
-            require(_rollbackState() == beforeOp);
-            _check();
+            require(snapshotCoreAndClock() == beforeOp);
+            assertLedger();
             b.setFault(address(escrow), MANAGER, CustodyToken.Fault.None);
         }
         vm.prank(DONOR);
@@ -131,25 +142,27 @@ contract CloseoutReconciliationTest is PositionAccountingFixture {
         require(hook.qualifyingSeconds() == q);
     }
 
-    function _refund() private {
+    /// @notice Pull the final treasury remainder under the fixture's terminal settlement conditions.
+    function refundBudget() private {
         uint256 due = BUDGET - BUDGET * q / 300 - returnedBudget;
         require(due > 0);
         b.setFault(address(escrow), address(this), CustodyToken.Fault.FalseReturn);
-        bytes32 beforeOp = _rollbackState();
+        bytes32 beforeOp = snapshotCoreAndClock();
         vm.expectRevert(abi.encodeWithSelector(ExactToken.TransferFailed.selector, address(b)));
         escrow.refund();
-        require(_rollbackState() == beforeOp);
-        _check();
+        require(snapshotCoreAndClock() == beforeOp);
+        assertLedger();
         b.setFault(address(escrow), address(this), CustodyToken.Fault.None);
         vm.prank(DONOR);
         require(escrow.refund() == due);
         returnedBudget += due;
     }
 
-    function _accountLeg(uint128 delta, bool adding) private {
-        (uint256 amountA, uint256 amountB) = _principal(-edge, edge, delta, adding);
+    /// @notice Book principal and earned LP fees at the pre-change core price and liquidity.
+    function accountForLeg(uint128 delta, bool adding) private {
+        (uint256 amountA, uint256 amountB) = quotePrincipal(-edge, edge, delta, adding);
         if (liquidity != 0) {
-            (uint256 feesA, uint256 feesB) = _fees(-edge, edge);
+            (uint256 feesA, uint256 feesB) = pendingFees(-edge, edge);
             assetA.fees += feesA;
             assetB.fees += feesB;
         }
@@ -164,18 +177,19 @@ contract CloseoutReconciliationTest is PositionAccountingFixture {
         }
     }
 
-    function _failedRerange(bytes32 id) private {
-        AgreementVault.Bounds memory bad = _bounds();
+    /// @notice Require the rejected second leg to restore the old position, fee snapshot and clock.
+    function assertRerangeRollback(bytes32 id) private {
+        AgreementVault.Bounds memory bad = adjustmentBounds();
         bad.maxInput0 = 0;
         bad.maxInput1 = 0;
-        bytes32 beforeOp = _rollbackState();
+        bytes32 beforeOp = snapshotCoreAndClock();
         vm.expectRevert(AgreementVault.PrincipalLimit.selector);
         vm.prank(MANAGER);
         vault.rerange(id, -180, 180, SEED, bad);
-        require(_rollbackState() == beforeOp);
+        require(snapshotCoreAndClock() == beforeOp);
         (uint128 proposed,,) = core.getPositionInfo(key.toId(), address(vault), -180, 180, bytes32(salt + 1));
         require(proposed == 0);
-        _check();
+        assertLedger();
         bytes memory leg = abi.encode(
             Operation.Rerange,
             IPoolManager.ModifyLiquidityParams(-180, 180, int256(uint256(SEED)), bytes32(salt + 1)),
@@ -187,34 +201,36 @@ contract CloseoutReconciliationTest is PositionAccountingFixture {
         vault.unlockCallback(leg);
     }
 
-    function _adjust(uint256 round) private {
-        AgreementVault.Bounds memory bounds = _bounds();
-        bytes32 id = _id();
+    /// @notice Model a permitted leg, execute it as manager and compare the persisted service interval.
+    function adjustModeledPosition(uint256 round) private {
+        AgreementVault.Bounds memory bounds = adjustmentBounds();
+        bytes32 id = modeledIdentity();
         if (round == 0) {
-            _accountLeg(SEED / 4, false);
+            accountForLeg(SEED / 4, false);
             vm.prank(MANAGER);
             vault.remove(id, SEED / 4, bounds);
         } else if (round == 1) {
-            _accountLeg(SEED / 4, true);
+            accountForLeg(SEED / 4, true);
             vm.prank(MANAGER);
             vault.add(id, -edge, edge, SEED / 4, bounds);
         } else {
-            _failedRerange(id);
-            _accountLeg(liquidity, false);
+            assertRerangeRollback(id);
+            accountForLeg(liquidity, false);
             edge = 180;
             ++salt;
-            _accountLeg(SEED, true);
+            accountForLeg(SEED, true);
             vm.prank(MANAGER);
             vault.rerange(id, -edge, edge, SEED, bounds);
-            require(_liquidity(address(vault), bytes32(uint256(1))) == 0);
+            require(seedRangeLiquidity(address(vault), bytes32(uint256(1))) == 0);
         }
         lastAdjustment = time;
         require(hook.qualifyingSeconds() == q);
     }
 
-    function _withdraw() private {
-        uint256 idleA = _idle(assetA);
-        uint256 idleB = _idle(assetB);
+    /// @notice Record actual treasury receipts against modeled idle amounts for each currency.
+    function withdrawAndReconcile() private {
+        uint256 idleA = modeledIdle(assetA);
+        uint256 idleB = modeledIdle(assetB);
         (uint256 gotA, uint256 gotB) = vault.withdrawIdle();
         require(gotA == idleA && gotB == idleB);
         if (gotA + gotB != 0) ++positiveWithdrawals;
@@ -222,7 +238,8 @@ contract CloseoutReconciliationTest is PositionAccountingFixture {
         assetB.received += idleB;
     }
 
-    function _deck(uint256 random) private pure returns (uint8[6] memory deck) {
+    /// @notice Produce a deterministic permutation of the six action families from the seed.
+    function shuffleActions(uint256 random) private pure returns (uint8[6] memory deck) {
         deck = [0, 1, 2, 3, 4, 5];
         for (uint256 n = 6; n > 1; --n) {
             uint256 index = random % n;
@@ -231,74 +248,76 @@ contract CloseoutReconciliationTest is PositionAccountingFixture {
         }
     }
 
-    function _activeAction(uint8 action, uint256 round, uint256 random) private {
+    /// @notice Execute one generated action and compare it with the independent ledger.
+    function applyCorpusAction(uint8 action, uint256 round, uint256 random) private {
         if (action == 0) {
             (, int24 tick,,) = core.getSlot0(key.toId());
             int24 magnitude = int24(uint24(15 + random % 151));
-            _swap(tick <= 0 ? magnitude : -magnitude);
+            swapToTick(tick <= 0 ? magnitude : -magnitude);
         } else if (action == 1) {
-            _adjust(round);
+            adjustModeledPosition(round);
         } else if (action == 2) {
             require(hook.checkpoint() == q);
         } else if (action == 3) {
-            _claim(round == 0);
+            claimPayment(round == 0);
         } else if (action == 4) {
             uint256 gift = 1 + random % 500;
-            _give(b, address(escrow), gift);
+            giveTokens(b, address(escrow), gift);
             budgetGifts += gift;
-            _give(a, address(vault), gift);
+            giveTokens(a, address(vault), gift);
             assetA.gifts += gift;
         } else {
-            bytes32 beforeOp = _rollbackState();
+            bytes32 beforeOp = snapshotCoreAndClock();
             vm.expectRevert(CompensationEscrow.NotTerminal.selector);
             escrow.refund();
-            AgreementVault.Bounds memory bounds = _bounds();
+            AgreementVault.Bounds memory bounds = adjustmentBounds();
             vm.expectRevert(AgreementVault.PositionMismatch.selector);
             vm.prank(MANAGER);
             vault.remove(bytes32(0), SEED / 4, bounds);
-            require(_rollbackState() == beforeOp);
+            require(snapshotCoreAndClock() == beforeOp);
         }
     }
 
-    function _sequence(uint256 seed, bool early) private {
+    /// @notice Drive one seeded lifecycle through early or expiry close and reconcile all receipts.
+    function executeCloseoutSequence(uint256 seed, bool early) private {
         for (uint256 round; round < 3; ++round) {
             uint256 random = uint256(keccak256(abi.encode(seed, round)));
-            uint8[6] memory deck = _deck(random);
+            uint8[6] memory deck = shuffleActions(random);
             for (uint256 i; i < 6; ++i) {
                 random = uint256(keccak256(abi.encode(random, i)));
-                _advance(START + 30 + 60 * round + 3 * i + random % 3);
-                _activeAction(deck[i], round, random);
-                _check();
+                advanceLedgerTime(START + 30 + 60 * round + 3 * i + random % 3);
+                applyCorpusAction(deck[i], round, random);
+                assertLedger();
             }
         }
-        _advance(early ? START + 185 + seed % 85 : END);
+        advanceLedgerTime(early ? START + 185 + seed % 85 : END);
         if (early) {
             vault.terminate();
             stop = time;
         }
-        _check();
-        uint8[6] memory closeOrder = _deck(uint256(keccak256(abi.encode(seed, "close"))));
+        assertLedger();
+        uint8[6] memory closeOrder = shuffleActions(uint256(keccak256(abi.encode(seed, "close"))));
         for (uint256 i; i < 6; ++i) {
-            _advance(time + i);
+            advanceLedgerTime(time + i);
             uint8 action = closeOrder[i];
             if (action == 0) {
-                _claim(false);
+                claimPayment(false);
             } else if (action == 1) {
-                _refund();
+                refundBudget();
             } else if (action == 2) {
-                _withdraw();
+                withdrawAndReconcile();
             } else if (action == 3) {
                 require(liquidity == SEED);
-                _accountLeg(liquidity, false);
+                accountForLeg(liquidity, false);
                 vault.exitLiquidity();
             } else if (action == 4) {
-                _swap(191);
+                swapToTick(191);
             } else {
                 require(hook.checkpoint() == q);
             }
-            _check();
+            assertLedger();
         }
-        _withdraw();
+        withdrawAndReconcile();
         if (!early) {
             require(vault.recordedStop() == 0);
             vault.finalizeExpiry();
@@ -306,30 +325,35 @@ contract CloseoutReconciliationTest is PositionAccountingFixture {
         vault.terminate();
         vault.exitLiquidity();
         require(escrow.claim() == 0 && escrow.refund() == 0);
-        _check();
+        assertLedger();
         require(positiveClaims > 0 && positiveWithdrawals > 0 && returnedBudget > 0 && liquidity == 0);
         require(assetA.fees + assetB.fees > 0 && hook.qualifyingSeconds() == q);
     }
 
     // Split the fixed corpus across test transactions to stay inside the normal gas limit.
+    /// @notice Reconcile service, position and both token ledgers through shuffled actions for fixed seeds 0–7.
     function testCloseoutSeeds00To07() public {
-        _corpus(0);
+        executeSeedBatch(0);
     }
 
+    /// @notice Reconcile service, position and both token ledgers through shuffled actions for fixed seeds 8–15.
     function testCloseoutSeeds08To15() public {
-        _corpus(8);
+        executeSeedBatch(8);
     }
 
+    /// @notice Reconcile service, position and both token ledgers through shuffled actions for fixed seeds 16–23.
     function testCloseoutSeeds16To23() public {
-        _corpus(16);
+        executeSeedBatch(16);
     }
 
+    /// @notice Reconcile service, position and both token ledgers through shuffled actions for fixed seeds 24–31.
     function testCloseoutSeeds24To31() public {
-        _corpus(24);
+        executeSeedBatch(24);
     }
 
-    function _corpus(uint256 first) private {
-        _active();
+    /// @notice Isolate each fixed seed with a snapshot and count nonzero payments and withdrawals.
+    function executeSeedBatch(uint256 first) private {
+        activateFixture();
         time = START;
         edge = 120;
         salt = 1;
@@ -340,7 +364,7 @@ contract CloseoutReconciliationTest is PositionAccountingFixture {
         uint256 withdrawals;
         for (uint256 i = first; i < first + 8; ++i) {
             uint256 snapshot = vm.snapshotState();
-            _sequence(uint256(keccak256(abi.encode(uint256(0x19112026), i))), i % 2 == 0);
+            executeCloseoutSequence(uint256(keccak256(abi.encode(uint256(0x19112026), i))), i % 2 == 0);
             claims += positiveClaims;
             withdrawals += positiveWithdrawals;
             require(vm.revertToStateAndDelete(snapshot));

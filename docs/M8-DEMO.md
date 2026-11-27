@@ -2,11 +2,11 @@
 
 **One sentence.** Unison lets a treasury hire a manager for one v4 position and pay from a separate budget for the seconds that position delivers the agreed liquidity.
 
-**30-second pitch.** What should a treasury pay when its manager’s position qualifies for only part of the contract? Unison’s hook observes swaps, its vault bounds the manager’s actions, and its escrow pays for qualifying time. In our local run, 180 of 300 seconds earned 60 B. Even with payment blocked, the treasury recovered its assets and the manager kept a claim on unpaid earnings. A matched retainer delivered equal liquidity. What changes is how the bill gets settled.
+**30-second pitch.** What should a treasury pay when its manager’s position qualifies for only part of the contract? Unison’s hook observes swaps, its vault bounds the manager’s actions, and its escrow pays for qualifying time. In our local run, 180 of 300 seconds earned 60 B. With manager payment blocked, the treasury recovered its assets. Its refund left 20 B in escrow for the manager. A matched retainer delivered equal liquidity. What changes is how the bill gets settled.
 
 ## Spoken demo
 
-Use the built loopback preview on the [pinned setup](../README.md#setup). Start at the funded page in a fresh **payment run**. Open the [author receipt table](A6-AUTHOR-REHEARSAL.md#run-identities-and-receipts) and [M6 comparison](M6-COMPARISON.md) in two other tabs. The last two segments use published local evidence, so the audience can inspect distinct runs without waiting for resets. The pitch above stands alone. Start the video with the first line below.
+Use the built loopback preview on the [pinned setup](../README.md#setup). Run `make demo` and `make viewer-preview` in separate terminals. Start at the funded page in a fresh **payment run**. The payment-failure script earns 60 B in 180 qualifying seconds. The operator acceptance run earned 51 B in 153 seconds on a different local identity. Use the payment run’s own receipts on screen. For the last two segments, open the historical author receipt table and the current payer comparison in separate tabs. Start the video with the first spoken line below. [Run references](DEVELOPMENT-EVIDENCE.md#judge-receipt-references) · [Author receipts](A6-AUTHOR-REHEARSAL.md#run-identities-and-receipts) · [Current payer comparison](DEVELOPMENT-EVIDENCE.md#fresh-comparison)
 
 ### 0:00–0:35 · What the treasury bought (35 seconds)
 
@@ -58,11 +58,11 @@ Use the built loopback preview on the [pinned setup](../README.md#setup). Start 
 
 ### 3:55–4:30 · Compare the same job (35 seconds)
 
-**Screen and action.** Show the M6 **Interrupted** row, then the payer table. Point out that **Early close, blocked payment** is a different row.
+**Screen and action.** Show the M6 **Interrupted** outcome, then the current development payer table. Point out that **Early close, blocked payment** is a different row.
 
 > Across seven scenarios the matched manager on a retainer delivered identical liquidity, fills and fees. Both arrangements let the treasury exit independently. In the full interrupted period the retainer paid one hundred B and Unison paid sixty. That onchain settlement cost about nine point four million extra gas including dedicated deployment and three swaps. Whether the invoice is worth that premium needs evidence from a treasury and a manager. Independent reproduction is also pending.
 
-**Expected evidence.** Retainer and Unison both delivered Q=180 on the interrupted workload. Extra gas was 9,405,354 in total. In the separate early-close case both paid 60 B. [Matched rows](M6-COMPARISON.md#service-execution-and-settlement) · [Gas by payer](M6-COMPARISON.md#cost-by-payer-and-economic-hurdle)
+**Expected evidence.** Retainer and Unison both delivered Q=180 on the interrupted workload. Current bytecode used 9,405,402 additional gas. The historical M6 run measured 9,405,354. In the separate early-close case both paid 60 B. [Matched rows](M6-COMPARISON.md#service-execution-and-settlement) · [Current gas by payer](DEVELOPMENT-EVIDENCE.md#fresh-comparison)
 
 **Timing estimate.** The seven spoken passages contain 505 whitespace-delimited words. At 135 words per minute they take about 3:44. Allow another 46 seconds for receipt waits, tab changes and silent inspection across the segments. Estimated total 4:30, with 30 seconds of margin. Human narration and final video timing are pending. The supplied limit is five minutes.
 
@@ -74,5 +74,5 @@ Use the built loopback preview on the [pinned setup](../README.md#setup). Start 
 | --- | --- | --- |
 | 0:00–0:50 | Read Round 1 payment blocks 29, 31, 33, 34 and 36 alongside the balance table. Follow the 20 B across the refund. [Receipts](A6-AUTHOR-REHEARSAL.md#run-identities-and-receipts) · [Balances](A6-AUTHOR-REHEARSAL.md#financial-results-observed-in-both-rounds) | Did payment really fail, did the treasury receive principal, and who got the remaining money? |
 | 0:50–1:35 | Inspect the separate extension and interruption runs. Compare tick 120 against each position’s upper edge. [Extension](LOCAL-VIEWER.md#permitted-manager-rerange-on-a-fresh-run) · [Interruption](LOCAL-VIEWER.md#interrupt-and-recover-on-a-separate-run) | Why does the same tick earn in one run and pause in the other? |
-| 1:35–2:30 | Compare the interrupted, feasible recovery and early-close rows, then the interrupted payer totals. [Outcomes](M6-COMPARISON.md#service-execution-and-settlement) · [Cost](M6-COMPARISON.md#cost-by-payer-and-economic-hurdle) | Which benefit survived the matched retainer and what did it cost? |
-| 2:30–3:00 | Check the patched runtime pin, author-only rehearsal and open reviewer, customer and video fields. [Submission checklist](M8-SUBMISSION.md) | Which claims can a judge reproduce and which still need human evidence? |
+| 1:35–2:30 | Compare the interrupted, feasible recovery and early-close rows, then the interrupted payer totals. [Outcomes](M6-COMPARISON.md#service-execution-and-settlement) · [Current cost](DEVELOPMENT-EVIDENCE.md#fresh-comparison) | Which benefit survived the matched retainer and what did it cost? |
+| 2:30–3:00 | Check the implementation pin, local and fork scope, and open reviewer, customer and video fields. [Judge handoff](M8-SUBMISSION.md#judge-handoff) | Which claims can a judge reproduce and which still need human evidence? |

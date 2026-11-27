@@ -12,7 +12,12 @@ import {FullMath} from "v4-core/src/libraries/FullMath.sol";
 abstract contract PositionAccountingFixture is ActiveFixture {
     using StateLibrary for IPoolManager;
 
-    function _principal(int24 lower, int24 upper, uint128 l, bool roundUp) internal view returns (uint256, uint256) {
+    /// @notice Price the leg from the actual sqrt price with rounding appropriate to its direction.
+    function quotePrincipal(int24 lower, int24 upper, uint128 l, bool roundUp)
+        internal
+        view
+        returns (uint256, uint256)
+    {
         (uint160 sqrt,,,) = core.getSlot0(key.toId());
         uint160 lo = TickMath.getSqrtPriceAtTick(lower);
         uint160 hi = TickMath.getSqrtPriceAtTick(upper);
@@ -23,7 +28,8 @@ abstract contract PositionAccountingFixture is ActiveFixture {
         );
     }
 
-    function _fees(int24 lower, int24 upper) internal view returns (uint256, uint256) {
+    /// @notice Compute each currency's fees from the core position snapshot and inside fee growth.
+    function pendingFees(int24 lower, int24 upper) internal view returns (uint256, uint256) {
         (uint128 l, uint256 lastA, uint256 lastB) =
             core.getPositionInfo(key.toId(), address(vault), lower, upper, vault.positionSalt());
         (uint256 growthA, uint256 growthB) = core.getFeeGrowthInside(key.toId(), lower, upper);

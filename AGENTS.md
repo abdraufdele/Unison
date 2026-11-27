@@ -4,7 +4,7 @@ Read PLAN.md, then only the relevant spec, milestone and evidence. Read docs/BUI
 
 - Scope: one treasury, manager, pair, fixed-fee v4 pool, active position, period and separate compensation budget. No shares, own token, marketplace, AI manager, multichain, renewal or generic executor.
 - Enforce PLAN A1–A6/R1–R8. Local experimental implementation may proceed alongside A1 and preliminary A2/A3 validation. Keep these gates pending until supported by customer and economic evidence. Technical completion establishes neither acceptance, product-market fit nor economic advantage. Preserve engineering dependencies, final cost measurement and reproducible demonstration gates.
-- Preserve bounded M1 evidence; see docs/M1-STATUS.md. Use the verified experiment import and pinned WSL replay instructions before adapting its code. No full acceptance/funding/refund/closeout pass exists yet.
+- Preserve bounded M1 evidence; see docs/M1-STATUS.md. Use the verified experiment import and pinned WSL replay instructions before adapting its code. M1 alone does not establish full closeout; the local C1 acceptance, funding, refund and closeout checks passed as recorded in PLAN.md. Independent reproduction and customer/economic gates remain open.
 - Treasury owns principal, idle assets and LP fees. Separate compensation custody; protect unpaid earned reserves and cap claims/refunds by funded rights.
 - Termination revokes authority and freezes accrual. Principal exit cannot depend on manager cooperation, compensation/refund transfer success or fresh oracle data; state token/core/chain limits.
 - Authenticate PoolManager plus active context; bind pool/owner/ticks/salt; never tx.origin. Checkpoint old state before changes, refresh actual state and clip time; cumulative full-precision base-unit math.
@@ -18,6 +18,6 @@ Read PLAN.md, then only the relevant spec, milestone and evidence. Read docs/BUI
 
 ## Configured GitHub workflow
 
-Public repository: https://github.com/abdraufdele/Unison. Remote: origin. Work on development, tracking origin/development; main is the default judging branch and includes development through 5c057fb via the authorized regular merge c78173c. The user authorizes routine checked commits and pushes of completed Unison work to this development branch. Do not repeatedly request the established destination or approval for these pushes. Merges, force-pushes, unrelated publication and deployment remain outside this authorization.
+Public repository: https://github.com/abdraufdele/Unison. Remote: origin. Work on development, tracking origin/development; main is the default judging branch and includes development through cf20313 via the authorized regular integration on 27 November 2026, preserving individual commit history. The user authorizes routine checked commits and pushes of completed Unison work to this development branch. Do not repeatedly request the established destination or approval for these pushes. Merges, force-pushes, unrelated publication and deployment remain outside this authorization.
 
 - Preserve the individual development commits when integrating into main: use a regular merge commit, never squash or rebase-and-merge. Before any merge, remind the user of this choice and obtain merge authorization; verify the development tip is an ancestor of main afterward. This reminder does not authorize a merge now.

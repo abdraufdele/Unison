@@ -8,7 +8,7 @@ from web3 import Web3
 from web3.logs import DISCARD
 
 from artifacts import fixture
-from statement import split_delta
+from statement import splitDelta
 
 
 @dataclass(frozen=True)
@@ -54,14 +54,18 @@ class Conflict(ValueError):
     pass
 
 
+# Reject an inconsistent action or stale fixture observation.
 def check(condition, message):
     if not condition:
         raise Conflict(message)
 
 
+# Collect independent contract and token balances at the given historical block.
 def ledger(run, block):
+    # Call the selected contract view at the snapshot block.
     def read(fn):
         return fn.call(block_identifier=block)
+    # Read both token balances for the selected account at the requested block.
     def pair(addr):
         return [read(t.functions.balanceOf(addr)) for t in (run.a, run.b)]
     return {
@@ -76,26 +80,30 @@ def ledger(run, block):
     }
 
 
+# Format six-decimal fixture units for the local action report.
 def amount(n):
     return format(Decimal(n) / 1_000_000, 'f')
 
 
-def core_position(r, edge, salt, block):
+# Read the actual core position using both ticks, the vault owner and salt.
+def corePosition(r, edge, salt, block):
     return r.router.functions.position(r.key, r.v.address, -edge, edge, fixture.word(salt)).call(block_identifier=block)
 
 
-def expected_position(r, edge, salt):
+# Hash the full fixture position identity for comparison with the onchain getters.
+def expectedPosition(r, edge, salt):
     return Web3.keccak(r.w.codec.encode(["bytes32", "address", "int24", "int24", "bytes32"],
                        [r.hook.functions.poolId().call(), r.v.address, -edge, edge, fixture.word(salt)]))
 
 
-def bounded_rerange(r, displayed_id, n):
-    old = expected_position(r, 120, 1)
+# Build the fixed manager replacement with the displayed position and accepted execution bounds.
+def boundedRerange(r, displayed_id, n):
+    old = expectedPosition(r, 120, 1)
     check(displayed_id == Web3.to_hex(old) and r.v.functions.positionId().call(block_identifier=n) == old,
           "Displayed seed position is stale. Refresh this run.")
-    price, tick, pool_l, owned, *_ = core_position(r, 120, 1, n)
+    price, tick, pool_l, owned, *_ = corePosition(r, 120, 1, n)
     check((price, tick, pool_l, owned) == (1 << 96, 0, fixture.L, fixture.L)
-          and core_position(r, 180, 2, n)[3] == 0, "Expected an undisturbed parity seed.")
+          and corePosition(r, 180, 2, n)[3] == 0, "Expected an undisturbed parity seed.")
     # Parity execution only. Each token has a separate gross input cap and principal output floor.
     bounds = (r.h, 2030, 2040, 0, 1, 900*fixture.UNIT, 900*fixture.UNIT, 598*fixture.UNIT, 598*fixture.UNIT)
     fn = r.v.functions.rerange(old, -180, 180, fixture.L, bounds)
@@ -104,24 +112,25 @@ def bounded_rerange(r, displayed_id, n):
     return fn
 
 
-def reconciled_rerange(r, receipt, before, after):
+# Compare the retired and new positions, token changes and receipt for the replacement.
+def reconciledRerange(r, receipt, before, after):
     n = receipt.blockNumber
-    new = expected_position(r, 180, 2)
-    check(core_position(r, 120, 1, n)[3] == 0 and core_position(r, 180, 2, n)[2:4] == [fixture.L, fixture.L]
+    new = expectedPosition(r, 180, 2)
+    check(corePosition(r, 120, 1, n)[3] == 0 and corePosition(r, 180, 2, n)[2:4] == [fixture.L, fixture.L]
           and r.v.functions.positionId().call(block_identifier=n) == new, "Core position replacement mismatch.")
     legs = [ev["args"] for ev in r.v.events.PositionAdjusted().process_receipt(receipt, errors=DISCARD)]
     check([(x["kind"], x["lower"], x["upper"], x["salt"], x["liquidity"]) for x in legs]
           == [(3, -120, 120, fixture.word(1), 0), (3, -180, 180, fixture.word(2), fixture.L)],
           "Unexpected rerange legs.")
     for i in (0, 1):
-        delta = sum(split_delta(x["principal"])[i] + split_delta(x["fees"])[i] for x in legs)
+        delta = sum(splitDelta(x["principal"])[i] + splitDelta(x["fees"])[i] for x in legs)
         check(after["vault"][i]-before["vault"][i] == delta, "Idle inventory differs from rerange settlement.")
     check(before["q"] == 30 and after["q"] == 31 and after["qualification"][0]
           and after["escrowB"] == before["escrowB"] == fixture.BUDGET
           and r.v.functions.lastAdjustment().call(block_identifier=n) == 2031, "Service, custody or cooldown mismatch.")
-    removed = split_delta(legs[0]["principal"])
-    added = split_delta(legs[1]["principal"])
-    return (f"Vault seed {Web3.to_hex(expected_position(r, 120, 1))} retired with zero L. "
+    removed = splitDelta(legs[0]["principal"])
+    added = splitDelta(legs[1]["principal"])
+    return (f"Vault seed {Web3.to_hex(expectedPosition(r, 120, 1))} retired with zero L. "
             f"Salt 2 holds {fixture.L:,} L under {Web3.to_hex(new)}. "
             f"Removed {amount(removed[0])} A and {amount(removed[1])} B; "
             f"added {amount(-added[0])} A and {amount(-added[1])} B. "
@@ -130,6 +139,7 @@ def reconciled_rerange(r, receipt, before, after):
 
 
 class Journey:
+    # Attach the current run and verifier and initialize its private action journal.
     def __init__(self, run, manifest, verify):
         self.run, self.manifest, self.verify = run, manifest, verify
         self.lock = threading.Lock()
@@ -140,6 +150,7 @@ class Journey:
         self.head = run.w.eth.get_block("latest")
         self.closing = False
 
+    # Describe available fixed steps and mined receipts for the current run.
     def status(self):
         return {"runId": self.manifest["runId"], "csrf": self.csrf, "stage": self.stage,
                 "version": len(self.history), "head": self.head.number, "problem": self.problem,
@@ -147,6 +158,7 @@ class Journey:
                             if self.stage in s.previous and not self.problem and not self.closing],
                 "receipts": self.history.copy()}
 
+    # Reject a stale run, stage or request version before selecting a supported action.
     def validate(self, body):
         check(not self.closing, "This run is closing.")
         check(body["runId"] == self.manifest["runId"], "Run changed. Refresh the agreement.")
@@ -158,12 +170,13 @@ class Journey:
         expected_phase = 2 if self.stage == "funded" else 5 if self.stage in CLOSED else 4
         check(r.v.functions.state().call() == expected_phase, "Onchain lifecycle differs from the expected stage.")
 
+    # Select the contract call and actor for the named fixture step.
     def call(self, action, body):
         r = self.run
         if action == "activate":
             return r.v.functions.activate(r.h)
         if action == "rerange":
-            return bounded_rerange(r, body["positionId"], self.head.number)
+            return boundedRerange(r, body["positionId"], self.head.number)
         if action in ("trade", "interrupt", "return", "rangeSwap"):
             sell_a, limit = {"trade": (True, -20), "interrupt": (False, 120), "return": (True, 0), "rangeSwap": (False, 120)}[action]
             return r.router.functions.order(r.key, sell_a, 700 * fixture.UNIT, limit)
@@ -186,6 +199,7 @@ class Journey:
             return r.esc.functions.refund()
         raise Conflict("Unknown local action.")
 
+    # Serialize and verify the action against the current fixture before recording its outcome.
     def perform(self, body):
         self.validate(body)
         action = body["action"]
@@ -251,6 +265,7 @@ class Journey:
         self.problem = None
         return self.status()
 
+    # Compare the mined step and resulting rights with its expected local scenario.
     def reconcile(self, action, receipt, before, after):
         r = self.run
         check(after["earned"] == after["q"] * fixture.BUDGET // 300 and
@@ -282,14 +297,15 @@ class Journey:
             suffix = " with payment blocked" if action == "withdraw" else ""
             return f"Treasury received {amount(received[0])} A and {amount(received[1])} B{suffix}."
         if action == "rerange":
-            return reconciled_rerange(r, receipt, before, after)
+            return reconciledRerange(r, receipt, before, after)
         if action == "rangeSwap":
             n = receipt.blockNumber
+            # Measure the trader's actual token balance change across the receipt block.
             def change(token):
                 balance = token.functions.balanceOf(r.trader)
                 return balance.call(block_identifier=n) - balance.call(block_identifier=n-1)
             used, output = -change(r.b), change(r.a)
-            price, tick, _, owned, *_ = core_position(r, 180, 2, n)
+            price, tick, _, owned, *_ = corePosition(r, 180, 2, n)
             check(0 < used <= 700*fixture.UNIT and output > 0 and owned == fixture.L
                   and price <= r.router.functions.price(120).call() and after["escrowB"] == fixture.BUDGET,
                   "Unexpected trader fill or custody.")

@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {AgreementVault} from "../src/AgreementVault.sol";
-import {CompensationEscrow} from "../src/CompensationEscrow.sol";
-import {CustodyLock, ExactToken} from "../src/ExactToken.sol";
-import {ServiceHook} from "../src/ServiceHook.sol";
-import {ActiveFixture} from "./fixtures/ActiveFixture.sol";
-import {CustodyToken} from "./fixtures/CustodyFixture.sol";
+import {AgreementVault} from "../../src/AgreementVault.sol";
+import {CompensationEscrow} from "../../src/CompensationEscrow.sol";
+import {CustodyLock, ExactToken} from "../../src/ExactToken.sol";
+import {ServiceHook} from "../../src/ServiceHook.sol";
+import {ActiveFixture} from "../fixtures/ActiveFixture.sol";
+import {CustodyToken} from "../fixtures/CustodyFixture.sol";
 import {PoolId} from "v4-core/src/types/PoolId.sol";
 
 interface VmCode {
+    /// @notice Install fixture runtime code at the requested test address.
     function etch(address target, bytes calldata code) external;
 }
 
@@ -19,12 +20,14 @@ contract ClockLookalike {
     PoolId public immutable poolId;
     bytes32 public constant pendingAdd = 0;
 
+    /// @notice Mimic the genuine clock's bindings while exposing synthetic service time.
     constructor(address owner, address core, PoolId id) {
         vault = owner;
         poolManager = core;
         poolId = id;
     }
 
+    /// @notice Expose the synthetic clock value used to challenge settlement authentication.
     function projectedSeconds() external pure returns (uint256) {
         return 300;
     }
@@ -35,17 +38,20 @@ contract CompensationSettlementTest is ActiveFixture {
     bool private duringRemoval;
     error ReserveStolen(uint256 expectedBalance, uint256 actualBalance);
 
-    function _claim() private returns (uint256) {
+    /// @notice Let a third party trigger the manager's fixed payout and return the base units paid.
+    function claimPayment() private returns (uint256) {
         vm.prank(DONOR);
         return escrow.claim();
     }
 
-    function _refund() private returns (uint256) {
+    /// @notice Pull the final treasury remainder under the fixture's terminal settlement conditions.
+    function refundBudget() private returns (uint256) {
         vm.prank(DONOR);
         return escrow.refund();
     }
 
-    function _ledger(uint256 earned, uint256 claimed, uint256 refunded, uint256 refundable, uint256 gifts)
+    /// @notice Reconcile projected rights and actual escrow custody, including unsolicited gifts.
+    function assertPaymentLedger(uint256 earned, uint256 claimed, uint256 refunded, uint256 refundable, uint256 gifts)
         private
         view
     {
@@ -58,8 +64,9 @@ contract CompensationSettlementTest is ActiveFixture {
         require(b.balanceOf(MANAGER) == claimed && b.balanceOf(DONOR) == 0, "fixed manager and caller");
     }
 
+    /// @notice Substitute a lookalike clock before activation and check that it cannot create manager entitlement.
     function testLookalikeClockCannotCreateSettlementRights() public {
-        _ready();
+        prepareFundedFixture();
         ClockLookalike mimic = new ClockLookalike(address(vault), address(core), key.toId());
         VmCode(address(vm)).etch(address(hook), address(mimic).code);
         require(hook.vault() == address(vault) && hook.poolManager() == core && hook.projectedSeconds() == 300);
@@ -69,155 +76,166 @@ contract CompensationSettlementTest is ActiveFixture {
         require(address(clock) == address(0) && duration == 0 && !terminal);
         vm.expectRevert(CompensationEscrow.ClaimUnavailable.selector);
         escrow.claim();
-        _ledger(0, 0, 0, 0, 0);
+        assertPaymentLedger(0, 0, 0, 0, 0);
         vault.cancel();
-        require(_claim() == 0 && _refund() == BUDGET && b.balanceOf(address(this)) == BUDGET);
+        require(claimPayment() == 0 && refundBudget() == BUDGET && b.balanceOf(address(this)) == BUDGET);
     }
 
+    /// @notice Run through full service and delayed claims and verify exactly one budget reaches the manager.
     function testFullServiceAndLateClaimPayOnce() public {
-        _active();
+        activateFixture();
         vm.warp(10_350);
         require(vault.recordedStop() == 0 && hook.qualifyingSeconds() == 0);
-        _ledger(BUDGET, 0, 0, 0, 0);
-        require(_claim() == BUDGET && hook.qualifyingSeconds() == 300);
-        require(_refund() == 0 && _claim() == 0 && vault.recordedStop() == 0);
-        _ledger(BUDGET, BUDGET, 0, 0, 0);
+        assertPaymentLedger(BUDGET, 0, 0, 0, 0);
+        require(claimPayment() == BUDGET && hook.qualifyingSeconds() == 300);
+        require(refundBudget() == 0 && claimPayment() == 0 && vault.recordedStop() == 0);
+        assertPaymentLedger(BUDGET, BUDGET, 0, 0, 0);
     }
 
+    /// @notice Interrupt service and gift escrow tokens, then reconcile both possible terminal pull orders.
     function testInterruptedServiceBothPullOrdersAndGiftsAtExactExpiry() public {
-        _active();
-        _give(b, address(escrow), 17);
+        activateFixture();
+        giveTokens(b, address(escrow), 17);
         vm.warp(10_090);
-        _swap(120);
+        swapToTick(120);
         vm.warp(10_210);
-        _swap(0);
+        swapToTick(0);
         vm.warp(10_299);
         require(escrow.refundable() == 0);
         vm.expectRevert(CompensationEscrow.NotTerminal.selector);
         escrow.refund();
         vm.warp(10_300);
-        _ledger(60 * UNIT, 0, 0, 40 * UNIT, 17);
+        assertPaymentLedger(60 * UNIT, 0, 0, 40 * UNIT, 17);
         uint256 snapshot = vm.snapshotState();
-        require(_claim() == 60 * UNIT && _refund() == 40 * UNIT);
-        _ledger(60 * UNIT, 60 * UNIT, 40 * UNIT, 0, 17);
+        require(claimPayment() == 60 * UNIT && refundBudget() == 40 * UNIT);
+        assertPaymentLedger(60 * UNIT, 60 * UNIT, 40 * UNIT, 0, 17);
         require(b.balanceOf(address(this)) == 40 * UNIT);
         require(vm.revertToStateAndDelete(snapshot));
-        require(_refund() == 40 * UNIT && hook.qualifyingSeconds() == 180 && vault.recordedStop() == 0);
-        _ledger(60 * UNIT, 0, 40 * UNIT, 0, 17);
-        require(_claim() == 60 * UNIT && _claim() == 0 && _refund() == 0);
-        _ledger(60 * UNIT, 60 * UNIT, 40 * UNIT, 0, 17);
+        require(refundBudget() == 40 * UNIT && hook.qualifyingSeconds() == 180 && vault.recordedStop() == 0);
+        assertPaymentLedger(60 * UNIT, 0, 40 * UNIT, 0, 17);
+        require(claimPayment() == 60 * UNIT && claimPayment() == 0 && refundBudget() == 0);
+        assertPaymentLedger(60 * UNIT, 60 * UNIT, 40 * UNIT, 0, 17);
         require(b.balanceOf(address(this)) == 40 * UNIT);
     }
 
+    /// @notice Compare split checkpoints and small claims with the original cumulative floor at three seconds.
     function testOneThenThreeSecondsAndPartitionIndependentEntitlement() public {
-        _active();
+        activateFixture();
         uint256 snapshot = vm.snapshotState();
         vm.warp(10_003);
-        uint256 single = _claim();
+        uint256 single = claimPayment();
         require(single == UNIT && vm.revertToStateAndDelete(snapshot));
         vm.warp(10_001);
-        _ledger(333_333, 0, 0, 0, 0);
-        require(hook.qualifyingSeconds() == 0 && _claim() == 333_333 && hook.qualifyingSeconds() == 1);
+        assertPaymentLedger(333_333, 0, 0, 0, 0);
+        require(hook.qualifyingSeconds() == 0 && claimPayment() == 333_333 && hook.qualifyingSeconds() == 1);
         vm.warp(10_002);
         require(hook.checkpoint() == 2 && hook.checkpoint() == 2);
         vm.warp(10_003);
-        require(_claim() == 666_667 && _claim() == 0);
-        _ledger(single, single, 0, 0, 0);
+        require(claimPayment() == 666_667 && claimPayment() == 0);
+        assertPaymentLedger(single, single, 0, 0, 0);
     }
 
+    /// @notice Block the manager payout during a fee-bearing close and reconcile independent principal recovery.
     function testManagerPaymentFailureCloseoutWithFeeBearingPrincipal() public {
-        _active();
-        _swap(-20);
+        activateFixture();
+        swapToTick(-20);
         vm.warp(10_120);
-        require(_claim() == 40 * UNIT);
+        require(claimPayment() == 40 * UNIT);
         vm.warp(10_180);
         b.setFault(address(escrow), MANAGER, CustodyToken.Fault.Revert);
         faults.mockCallRevert(address(adapter), "", hex"bad0");
         vm.expectRevert(abi.encodeWithSelector(ExactToken.TransferFailed.selector, address(b)));
         escrow.claim();
         require(hook.qualifyingSeconds() == 120 && hook.projectedSeconds() == 180, "failed pull checkpoint rollback");
-        _ledger(60 * UNIT, 40 * UNIT, 0, 0, 0);
+        assertPaymentLedger(60 * UNIT, 40 * UNIT, 0, 0, 0);
         vault.terminate();
         require(vault.recordedStop() == 10_180 && hook.qualifyingSeconds() == 180);
-        _ledger(60 * UNIT, 40 * UNIT, 0, 40 * UNIT, 0);
+        assertPaymentLedger(60 * UNIT, 40 * UNIT, 0, 40 * UNIT, 0);
         vault.exitLiquidity();
         vault.withdrawIdle();
         // Real swap at -20. Removal returns 698,218,788 A principal plus 301,038 A fees,
         // and 498,228,754 B principal. Both idle balances started at PRINCIPAL - COST.
-        _balances(2_100_346_049, 1_900_054_977, 0, 0, 60 * UNIT);
-        require(vault.positionId() == 0 && _liquidity(address(vault), bytes32(uint256(1))) == 0);
-        require(_refund() == 40 * UNIT && b.balanceOf(address(this)) == 1_940_054_977);
-        _ledger(60 * UNIT, 40 * UNIT, 40 * UNIT, 0, 0);
+        assertCustodyBalances(2_100_346_049, 1_900_054_977, 0, 0, 60 * UNIT);
+        require(vault.positionId() == 0 && seedRangeLiquidity(address(vault), bytes32(uint256(1))) == 0);
+        require(refundBudget() == 40 * UNIT && b.balanceOf(address(this)) == 1_940_054_977);
+        assertPaymentLedger(60 * UNIT, 40 * UNIT, 40 * UNIT, 0, 0);
         b.setFault(address(escrow), MANAGER, CustodyToken.Fault.None);
-        require(_claim() == 20 * UNIT && _refund() == 0 && _claim() == 0);
-        _ledger(60 * UNIT, 60 * UNIT, 40 * UNIT, 0, 0);
+        require(claimPayment() == 20 * UNIT && refundBudget() == 0 && claimPayment() == 0);
+        assertPaymentLedger(60 * UNIT, 60 * UNIT, 40 * UNIT, 0, 0);
     }
 
+    /// @notice Refund after partial payment and require the escrow to retain every unpaid earned base unit.
     function testTerminalRefundLeavesUnpaidEarnedReserve() public {
-        _active();
+        activateFixture();
         vm.warp(10_120);
-        require(_claim() == 40 * UNIT);
+        require(claimPayment() == 40 * UNIT);
         vm.warp(10_180);
         vault.terminate();
         uint256 beforeTreasury = b.balanceOf(address(this));
-        uint256 refund = _refund();
+        uint256 refund = refundBudget();
         uint256 remaining = b.balanceOf(address(escrow));
         if (remaining != 20 * UNIT) revert ReserveStolen(20 * UNIT, remaining);
         require(refund == 40 * UNIT && b.balanceOf(address(this)) - beforeTreasury == refund);
-        require(_claim() == remaining);
-        _ledger(60 * UNIT, 60 * UNIT, 40 * UNIT, 0, 0);
+        require(claimPayment() == remaining);
+        assertPaymentLedger(60 * UNIT, 60 * UNIT, 40 * UNIT, 0, 0);
     }
 
+    /// @notice Block the treasury refund route and verify principal withdrawal and manager payment remain available.
     function testRefundFailurePreservesIndependentPrincipalAndManagerReceipt() public {
-        _active();
+        activateFixture();
         vm.warp(10_120);
         vault.terminate();
         b.setFault(address(escrow), address(this), CustodyToken.Fault.FalseReturn);
         vm.expectRevert(abi.encodeWithSelector(ExactToken.TransferFailed.selector, address(b)));
         escrow.refund();
-        _ledger(40 * UNIT, 0, 0, 60 * UNIT, 0);
+        assertPaymentLedger(40 * UNIT, 0, 0, 60 * UNIT, 0);
         vault.withdrawIdle();
         vault.exitLiquidity();
         vault.withdrawIdle();
-        _balances(PRINCIPAL - 1, PRINCIPAL - 1, 0, 0, BUDGET);
-        require(_claim() == 40 * UNIT);
-        _ledger(40 * UNIT, 40 * UNIT, 0, 60 * UNIT, 0);
+        assertCustodyBalances(PRINCIPAL - 1, PRINCIPAL - 1, 0, 0, BUDGET);
+        require(claimPayment() == 40 * UNIT);
+        assertPaymentLedger(40 * UNIT, 40 * UNIT, 0, 60 * UNIT, 0);
         b.setFault(address(escrow), address(this), CustodyToken.Fault.None);
-        require(_refund() == 60 * UNIT && b.balanceOf(address(this)) == PRINCIPAL - 1 + 60 * UNIT);
-        _ledger(40 * UNIT, 40 * UNIT, 60 * UNIT, 0, 0);
+        require(refundBudget() == 60 * UNIT && b.balanceOf(address(this)) == PRINCIPAL - 1 + 60 * UNIT);
+        assertPaymentLedger(40 * UNIT, 40 * UNIT, 60 * UNIT, 0, 0);
     }
 
-    function _badClaim(CustodyToken.Fault fault, bytes memory reason) private {
+    /// @notice Apply a payout fault and check the specified error and unchanged rights.
+    function expectClaimRollback(CustodyToken.Fault fault, bytes memory reason) private {
         b.setFault(address(escrow), MANAGER, fault);
         vm.expectRevert(reason);
         escrow.claim();
-        _ledger(UNIT, 0, 0, 0, 0);
+        assertPaymentLedger(UNIT, 0, 0, 0, 0);
         require(hook.qualifyingSeconds() == 0);
     }
 
+    /// @notice Inject false, malformed and inexact payouts and require balances and claim rights to roll back.
     function testFalseMalformedAndInexactClaimsRollback() public {
-        _active();
+        activateFixture();
         vm.warp(10_003);
         bytes memory failed = abi.encodeWithSelector(ExactToken.TransferFailed.selector, address(b));
-        _badClaim(CustodyToken.Fault.FalseReturn, failed);
-        _badClaim(CustodyToken.Fault.InvalidReturn, failed);
-        _badClaim(
+        expectClaimRollback(CustodyToken.Fault.FalseReturn, failed);
+        expectClaimRollback(CustodyToken.Fault.InvalidReturn, failed);
+        expectClaimRollback(
             CustodyToken.Fault.ShortReceipt,
             abi.encodeWithSelector(ExactToken.UnexpectedBalance.selector, address(b), MANAGER)
         );
-        _badClaim(
+        expectClaimRollback(
             CustodyToken.Fault.ExtraDebit,
             abi.encodeWithSelector(ExactToken.UnexpectedBalance.selector, address(b), address(escrow))
         );
         b.setFault(address(escrow), MANAGER, CustodyToken.Fault.NoReturn);
-        require(_claim() == UNIT);
+        require(claimPayment() == UNIT);
     }
 
+    /// @notice Run the test's configured probe during a mock token transfer.
     function onTransfer() public override {
         require(msg.sender == address(b));
         if (duringRemoval) {
             duringRemoval = false;
-            require(_liquidity(address(vault), bytes32(uint256(1))) == SEED / 2 && hook.observedLiquidity() == SEED);
+            require(
+                seedRangeLiquidity(address(vault), bytes32(uint256(1))) == SEED / 2 && hook.observedLiquidity() == SEED
+            );
             vm.expectRevert(CompensationEscrow.NotTerminal.selector);
             escrow.refund();
             require(escrow.claim() == 10 * UNIT && hook.observedLiquidity() == SEED);
@@ -230,11 +248,12 @@ contract CompensationSettlementTest is ActiveFixture {
         }
     }
 
+    /// @notice Probe settlement during removal and both payouts and compare balances after reentrant calls.
     function testSettlementDuringVaultRemovalAndReentryOnBothPayouts() public {
-        _active();
+        activateFixture();
         vm.warp(10_030);
         bytes32 id = vault.positionId();
-        AgreementVault.Bounds memory bounds = _bounds();
+        AgreementVault.Bounds memory bounds = adjustmentBounds();
         duringRemoval = true;
         b.setProbe(this);
         vm.prank(MANAGER);
@@ -242,7 +261,7 @@ contract CompensationSettlementTest is ActiveFixture {
         require(!duringRemoval && blockedCalls == 1 && hook.observedLiquidity() == SEED / 2);
         vm.warp(10_060);
         vault.terminate();
-        require(_claim() == 0 && _refund() == 90 * UNIT && blockedCalls == 2);
-        _ledger(10 * UNIT, 10 * UNIT, 90 * UNIT, 0, 0);
+        require(claimPayment() == 0 && refundBudget() == 90 * UNIT && blockedCalls == 2);
+        assertPaymentLedger(10 * UNIT, 10 * UNIT, 90 * UNIT, 0, 0);
     }
 }

@@ -75,6 +75,7 @@ contract ServiceHook {
     error WrongCoreOrPool();
     error InvalidAddContext();
 
+    /// @notice Bind the sole vault and pool and require this address to enable exactly before-add and after-swap callbacks.
     constructor(address ownerVault, IPoolManager core, Currency token0, Currency token1) {
         if (
             ownerVault == address(0) || address(core) == address(0) || token0.isAddressZero() || token0 >= token1
@@ -97,28 +98,31 @@ contract ServiceHook {
         pendingAdd = keccak256(abi.encode(params, abi.encode(kind)));
     }
 
+    /// @notice Consume the vault's exact add-leg grant after authenticating both the PoolManager and pool key.
     function beforeAddLiquidity(
         address sender,
         PoolKey calldata key,
         IPoolManager.ModifyLiquidityParams calldata params,
         bytes calldata leg
     ) external returns (bytes4) {
-        _authenticate(key);
+        authenticatePool(key);
         if (sender != vault) revert NotVault();
         if (pendingAdd == 0 || pendingAdd != keccak256(abi.encode(params, leg))) revert InvalidAddContext();
         delete pendingAdd;
         return IHooks.beforeAddLiquidity.selector;
     }
 
+    /// @notice Accrue using the old qualification before observing the new core state and returning zero hook delta.
     function afterSwap(address, PoolKey calldata key, IPoolManager.SwapParams calldata, BalanceDelta, bytes calldata)
         external
         returns (bytes4, int128)
     {
-        _authenticate(key);
-        _checkpoint(true);
+        authenticatePool(key);
+        checkpointInterval(true);
         return (IHooks.afterSwap.selector, 0);
     }
 
+    /// @notice Start service once with the vault-confirmed seed identity, opening band and original scheduled end.
     function initializeClock(int24 lower, int24 upper, bytes32 salt, uint128 liquidity, uint256 end)
         external
         onlyVault
@@ -128,20 +132,22 @@ contract ServiceHook {
         scheduledEnd = end;
         bandLower = lower;
         bandUpper = upper;
-        _install(lower, upper, salt, liquidity);
+        installObservation(lower, upper, salt, liquidity);
     }
 
+    /// @notice Credit the pre-change state before the vault changes liquidity or retires the current salt.
     function beforeAdjustment() external onlyVault {
-        _checkpoint(false);
+        checkpointInterval(false);
     }
 
     /// @dev Called once for the final, core-confirmed vault position, including an empty terminal exit.
     function installPosition(int24 lower, int24 upper, bytes32 salt, uint128 liquidity) external onlyVault {
         if (scheduledEnd == 0 || (stopped && liquidity != 0)) revert InvalidClockState();
-        _install(lower, upper, salt, liquidity);
+        installObservation(lower, upper, salt, liquidity);
     }
 
-    function _install(int24 lower, int24 upper, bytes32 salt, uint128 liquidity) private {
+    /// @notice Install the confirmed position, clear an empty salt and start its next interval at this timestamp.
+    function installObservation(int24 lower, int24 upper, bytes32 salt, uint128 liquidity) private {
         positionLower = lower;
         positionUpper = upper;
         positionSalt = liquidity == 0 ? bytes32(0) : salt;
@@ -149,13 +155,14 @@ contract ServiceHook {
         // Begin the next interval here. The vault credited the old one before changing liquidity.
         if (!stopped) {
             lastCheckpoint = block.timestamp;
-            _observe();
+            observePosition();
         } else {
             observedLiquidity = 0;
         }
-        _publish();
+        publishCheckpoint();
     }
 
+    /// @notice Return the hash of pool, vault, ticks and salt, or zero when no position is installed.
     function positionId() public view returns (bytes32) {
         if (positionSalt == 0) return bytes32(0);
         return keccak256(abi.encode(poolId, vault, positionLower, positionUpper, positionSalt));
@@ -182,7 +189,8 @@ contract ServiceHook {
         return (failures == 0, failures);
     }
 
-    function _observe() private {
+    /// @notice Read the stored core tick and the liquidity attributed to this exact vault position.
+    function observePosition() private {
         (, observedTick,,) = poolManager.getSlot0(poolId);
         observedLiquidity = positionSalt == 0
             ? 0
@@ -191,42 +199,48 @@ contract ServiceHook {
             );
     }
 
+    /// @notice Return stored service seconds plus elapsed time on the old qualifying state through the scheduled end.
     function projectedSeconds() public view returns (uint256) {
-        return storedQualified ? qualifyingSeconds + (_clippedTime() - lastCheckpoint) : qualifyingSeconds;
+        return storedQualified ? qualifyingSeconds + (clippedTime() - lastCheckpoint) : qualifyingSeconds;
     }
 
-    function _clippedTime() private view returns (uint256) {
+    /// @notice Cap the current block timestamp at the end accepted on activation.
+    function clippedTime() private view returns (uint256) {
         return block.timestamp < scheduledEnd ? block.timestamp : scheduledEnd;
     }
 
     /// @notice Persist the open interval without mutating core or sampling a partially settled position.
     function checkpoint() external returns (uint256) {
-        _checkpoint(false);
+        checkpointInterval(false);
         return qualifyingSeconds;
     }
 
-    function _checkpoint(bool observe) private {
+    /// @notice Persist the open interval before refreshing price and liquidity after a swap, and stop on expiry.
+    function checkpointInterval(bool observe) private {
         if (scheduledEnd == 0 || stopped) return;
-        _accrue();
+        accrueInterval();
         if (lastCheckpoint == scheduledEnd) stopped = true;
-        else if (observe) _observe();
-        _publish();
+        else if (observe) observePosition();
+        publishCheckpoint();
     }
 
+    /// @notice Persist the final clipped interval and freeze future service updates. Only the vault may stop early.
     function stopClock() external onlyVault {
         if (stopped) return;
         if (scheduledEnd == 0) revert InvalidClockState();
-        _accrue();
+        accrueInterval();
         stopped = true;
-        _publish();
+        publishCheckpoint();
     }
 
-    function _accrue() private {
+    /// @notice Credit the projection before advancing its timestamp, preserving the old qualification.
+    function accrueInterval() private {
         qualifyingSeconds = projectedSeconds();
-        lastCheckpoint = _clippedTime();
+        lastCheckpoint = clippedTime();
     }
 
-    function _publish() private {
+    /// @notice Recompute failure predicates and emit the old and new qualifications with the observed position.
+    function publishCheckpoint() private {
         bool old = storedQualified;
         (storedQualified,) = qualification();
         emit ServiceCheckpoint(
@@ -234,7 +248,8 @@ contract ServiceHook {
         );
     }
 
-    function _authenticate(PoolKey calldata key) private view {
+    /// @notice Require both the bound PoolManager caller and its complete accepted pool identity.
+    function authenticatePool(PoolKey calldata key) private view {
         if (msg.sender != address(poolManager) || PoolId.unwrap(key.toId()) != PoolId.unwrap(poolId)) {
             revert WrongCoreOrPool();
         }
