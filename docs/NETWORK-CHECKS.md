@@ -13,7 +13,7 @@ For the behavior check run `python3 -Bu scripts/ops/network.py fork --network se
 
 ### Executed checks on 27 November 2026
 
-Both pinned behavioral runs exited 0. Each initialized the official core with a fresh fixture pair, transferred both inventories and the separate budget, quoted 598,173,777 base units per leg, installed 100,000,000,000 liquidity, traded to tick 120, observed qualification end and recovered principal with zero position liquidity. Transactions were mined on the owned fork. The public upstream permitted only allowlisted reads. Initial archive-read failures and a nested Forge OP Stack hardfork mismatch interrupted earlier runs. The driver runs its additional Forge constructor rehearsal locally. Both network forks verify actual constructor receipts, sender, runtime and final bindings on their own simulated chain.
+Both pinned behavioral runs exited 0. Each initialized the official core with a fresh fixture pair, transferred both inventories and the separate budget, quoted 598,173,777 base units per leg, installed 100,000,000,000 liquidity, traded to tick 120, observed qualification end and recovered principal with zero position liquidity. Transactions were mined on the owned fork. The public upstream permitted only allowlisted reads. Initial archive-read failures and a nested Forge OP Stack hardfork mismatch interrupted earlier runs. This initial run used the local Forge constructor rehearsal and verified actual constructor receipts, sender, runtime and final bindings on both network forks.
 
 | Completed dry run | Simulated receipts | Vault | CREATE2 salt | Full hook init-code keccak |
 |---|---:|---|---|---|
@@ -21,3 +21,14 @@ Both pinned behavioral runs exited 0. Each initialized the official core with a 
 | Unichain Sepolia fork | 11 | 0x63A66a64C74F4E5A4C192D2EA39C249628736F78 | 0x4c5b | 0xc5ebcf74d8e03bb4d3742f40b6462c8a2482a6bd057e23250b696b33f1a3b3a6 |
 
 Both manifests verified constructor ownership, the 0x0840 hook mask, pool and recipient bindings. The local receipt count includes deployment of the pinned PoolManager. The config gate rejected mainnet dry-run before opening an RPC connection. Public submission and explorer verification remain unexecuted.
+
+### OP Stack runtime recheck
+
+The compiler target remains Cancun. Both pinned headers fall after Karst activation and before Lagoon. The final fork configuration selects the Optimism family and `optimism:karst` at runtime. The Foundry constructor script now executes successfully on Sepolia as well as locally. Both pinned behavioral checks and a separate Sepolia preflight exited 0. A temporary DNS failure on the first Sepolia request cleared on retry. [Sepolia upgrade schedule](https://github.com/ethereum-optimism/superchain-registry/blob/main/superchain/configs/sepolia/unichain.toml) · [Mainnet upgrade schedule](https://github.com/ethereum-optimism/superchain-registry/blob/main/superchain/configs/mainnet/unichain.toml)
+
+| Final simulation | Receipts | Vault | CREATE2 salt | Hook init-code keccak |
+|---|---:|---|---|---|
+| Local | 12 | 0x60900729DBb8B7662AbDA3Af236CEdBc3D9ED25C | 0x20bb | 0xf79cd3afe4d89f612f74254000980bc8bdedaaeecf975be40b661547a031b60b |
+| Pinned Sepolia | 11 | 0x1A6a019f1298cD5d50A328C4Ca3842F7b1DfECC3 | 0x9c0b | 0xd7ebc79ce05e89a09b8e5730f54243360fc68f31841ddb8f80f0d2f3a746a342 |
+
+The checked commands were `make fork NETWORK=sepolia`, `make fork NETWORK=mainnet`, `make preflight NETWORK=sepolia`, `make dry-run-sepolia` and `make dry-run-local` with fresh manifests. Their actor accounts, manifests and receipts belong to the disposable sessions. Each fresh simulation obtains new addresses and mines a new salt.

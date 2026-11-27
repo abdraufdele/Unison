@@ -6,5 +6,6 @@
   "blockHash": "0x1d80409d961d8cea66acd471e44b039f94c82b959247b18bd1a9275e4ce409bc",
   "core": "0x00b036b58a818b1bc34d502d3fe730db729e62ac",
   "coreHash": "0x7c5e10e0bd8580e13b48751e4cd7db6315577488d0f76b20bc6c8bcbe2646dc0",
-  "fixtureAssets": true
+  "fixtureAssets": true,
+  "runtimeHardfork": "optimism:karst"
 }

@@ -53,6 +53,8 @@ def rehearseVault(w, c, treasury, arguments):
             "--offline",
             "--rpc-url",
             "unison_script",
+            "--hardfork",
+            c.get("runtimeHardfork", "cancun"),
             "--sender",
             treasury,
             "--non-interactive",
@@ -358,7 +360,7 @@ def deployAgreement(w, c, path, mode, account=None):
     def create(role, name, *args):
         builder = contract(w, name).constructor(*args)
         recordConstructor(role, name, builder)
-        if role == "vault" and c["network"] == "local":
+        if role == "vault" and c["network"] != "mainnet":
             rehearseVault(w, c, treasury, m["constructors"][role]["arguments"])
         address = submit("create " + role, builder).contractAddress
         verifyRuntime(w, name, address)

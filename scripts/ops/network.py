@@ -81,6 +81,8 @@ def main():
                     "--offline",
                     "--rpc-url",
                     "unison_script",
+                    "--hardfork",
+                    c.get("runtimeHardfork", "cancun"),
                     "--non-interactive",
                 ],
                 env=env,

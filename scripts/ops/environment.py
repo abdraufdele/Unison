@@ -66,6 +66,7 @@ def loadConfig(network, path):
         require(
             url.scheme == "https" and config["core"].lower() == CORE[network], "public endpoint/core mismatch"
         )
+        require(config["runtimeHardfork"] == "optimism:karst", "unsupported runtime for this fork pin")
         require(
             config["block"] > 0 and len(Web3.to_bytes(hexstr=config["blockHash"])) == 32, "missing fork pin"
         )
@@ -136,11 +137,13 @@ def ownedChain(c):
             "--chain-id",
             str(c["chainId"]),
             "--hardfork",
-            "cancun",
+            c.get("runtimeHardfork", "cancun"),
         ]
         env = os.environ.copy()
         if c["network"] != "local":
             args += [
+                "--network",
+                "optimism",
                 "--fork-url",
                 sessions.enter_context(forkReads(c["rpc"])),
                 "--fork-block-number",
