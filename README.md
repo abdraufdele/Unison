@@ -32,7 +32,7 @@ Use a provisioned Linux x86-64 or WSL2 host with the pinned tools listed in [ope
 ```bash
 git clone --branch development --single-branch https://github.com/abdraufdele/Unison.git unison-judge
 cd unison-judge
-git submodule update --init -- lib/v4-core lib/solmate lib/forge-std lib/openzeppelin-contracts
+make init
 make prerequisites
 ```
 

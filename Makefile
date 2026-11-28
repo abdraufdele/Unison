@@ -29,8 +29,9 @@ ACT = --action "$$ACTION" --role "$$ROLE" --terms "$$TERMS" --run-id "$$RUN_ID" 
 .PHONY: help init all prerequisites deps fmt fmt-check build sizes unit integration fuzz invariant test mutations mutation-clock mutation-reserve mutation-revocation mutation-payment check viewer-install viewer-build viewer-preview artifacts demo statements browser m6 m6-run local-node deploy-local preflight fork dry-run dry-run-local dry-run-sepolia dry-run-mainnet broadcast verify bindings read simulate act-local broadcast-action statement
 help: ## Start | List supported targets and inputs (default).
 	@awk 'BEGIN {FS=":.*## "} /^[a-z][a-z0-9-]*:.*## / {split($$2,p," \\| "); printf "%-14s %-20s %s\n",p[1],$$1,p[2]}' $(firstword $(MAKEFILE_LIST))
-init: ## Build | Restore the four exact root dependency submodules.
-	git submodule update --init -- lib/v4-core lib/solmate lib/forge-std lib/openzeppelin-contracts
+init: ## Build | Restore pinned root submodules and the original Safe test artifacts.
+	git submodule update --init -- lib/v4-core lib/solmate lib/forge-std lib/openzeppelin-contracts lib/safe-smart-account
+	$(PY) scripts/prepareSafeRelease.py
 all: check ## Checks | Run all local checks sequentially.
 prerequisites: ## Build | Verify native tools, exact git pins and M1 hashes.
 	$(PY) scripts/verify.py pins

@@ -39,3 +39,6 @@ __pycache__/
 
 # Local Python lint cache
 .ruff_cache/
+
+# Verified original Safe release artifacts for local Foundry tests
+/.local/safe-release/

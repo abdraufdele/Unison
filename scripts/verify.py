@@ -9,6 +9,8 @@ from pathlib import Path
 
 from web3 import Web3
 
+from prepareSafeRelease import releaseMatches
+
 ROOT = Path(__file__).resolve().parents[1]
 if not __debug__:
     raise RuntimeError("dependency checks require Python assertions enabled")
@@ -33,10 +35,12 @@ def checkPins():
         (core, "e50237c43811bd9b526eff40f26772152a42daba"),
         ("lib/forge-std", "1de6eecf821de7fe2c908cc48d3ab3dced20717f"),
         ("lib/openzeppelin-contracts", "dbb6104ce834628e473d2173bbc9d47f81a9eec3"),
+        ("lib/safe-smart-account", "bf943f80fec5ac647159d26161446ac5d716a294"),
         ("lib/solmate", "4b47a19038b798b4a33d9749d25e570443520647"),
     ):
         assert output("git", "-C", path, "rev-parse", "HEAD") == pin
         assert not output("git", "-C", path, "status", "--porcelain", "--untracked-files=no"), path
+    assert releaseMatches(), "run make init to restore the Safe test artifacts"
     from importlib.metadata import version
 
     for line in (ROOT / "requirements-dev.txt").read_text().splitlines():
