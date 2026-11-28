@@ -93,7 +93,7 @@ abstract contract SafeCreationFixture {
     }
 
     /// @notice Initialize a real proxy in its factory transaction and build the unfunded local draft bindings.
-    function setUp() public {
+    function setUp() public virtual {
         vm.chainId(31337);
         address[] memory members = new address[](3);
         for (uint256 i; i < members.length; ++i) {
@@ -146,8 +146,13 @@ abstract contract SafeCreationFixture {
 
     /// @notice Obtain the chain/proxy-domain digest using zero value, Safe gas and reimbursement fields.
     function digest(Request memory request) internal view returns (bytes32) {
+        return digestWithGas(request, 0);
+    }
+
+    /// @notice Include the selected inner gas field in the owner-signed digest.
+    function digestWithGas(Request memory request, uint256 safeTxGas) internal view returns (bytes32) {
         return safe.getTransactionHash(
-            request.target, 0, request.data, request.operation, 0, 0, 0, address(0), address(0), request.nonce
+            request.target, 0, request.data, request.operation, safeTxGas, 0, 0, address(0), address(0), request.nonce
         );
     }
 
@@ -169,9 +174,26 @@ abstract contract SafeCreationFixture {
 
     /// @notice Submit only as the non-owner executor. The Safe verifies signatures against its live nonce.
     function execute(Request memory request, bytes memory signatures) internal returns (bool) {
+        return executeWithGas(request, signatures, 0);
+    }
+
+    /// @notice Submit the signed gas policy, including the mode that permits a recorded inner failure.
+    function executeWithGas(Request memory request, bytes memory signatures, uint256 safeTxGas)
+        internal
+        returns (bool)
+    {
         vm.prank(executor);
         return safe.execTransaction(
-            request.target, 0, request.data, request.operation, 0, 0, 0, address(0), payable(address(0)), signatures
+            request.target,
+            0,
+            request.data,
+            request.operation,
+            safeTxGas,
+            0,
+            0,
+            address(0),
+            payable(address(0)),
+            signatures
         );
     }
 

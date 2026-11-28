@@ -8,13 +8,11 @@ import {CustodyFixture} from "./CustodyFixture.sol";
 import {MockOpeningReferenceAdapter} from "./MockOpeningReferenceAdapter.sol";
 import {PoolManager} from "v4-core/src/PoolManager.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
-import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
-import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
-import {PoolId} from "v4-core/src/types/PoolId.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 
+import {ServicePoolFixture} from "./ServicePoolFixture.sol";
 import {CoreSeedHarness} from "./CoreSeedHarness.sol";
 import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 
@@ -44,32 +42,11 @@ abstract contract ActiveFixture is CustodyFixture {
         core = new PoolManager(address(this));
         Currency c0 = Currency.wrap(address(a));
         Currency c1 = Currency.wrap(address(b));
-        bytes32 initHash =
-            keccak256(abi.encodePacked(type(ServiceHook).creationCode, abi.encode(boundVault, core, c0, c1)));
-        bytes32 salt;
-        address predicted;
-        for (uint256 i; i < 1_000_000; ++i) {
-            salt = bytes32(i);
-            predicted =
-                address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, initHash)))));
-            if (uint160(predicted) & Hooks.ALL_HOOK_MASK == Hooks.BEFORE_ADD_LIQUIDITY_FLAG | Hooks.AFTER_SWAP_FLAG) {
-                break;
-            }
-        }
-        hook = new ServiceHook{salt: salt}(boundVault, core, c0, c1);
-        require(
-            address(hook) == predicted && address(hook).codehash == keccak256(type(ServiceHook).runtimeCode),
-            "CREATE2 product"
-        );
-        key = PoolKey(c0, c1, 3000, 60, IHooks(predicted));
-        require(
-            PoolId.unwrap(hook.poolId()) == PoolId.unwrap(key.toId()) && hook.poolManager() == core
-                && hook.vault() == boundVault
-        );
+        (hook, key) = ServicePoolFixture.install(boundVault, core, c0, c1);
         adapter = new MockOpeningReferenceAdapter();
         AgreementVault.Bindings memory bnd = vault.currentTerms().bindings;
         bnd.poolManager = address(core);
-        bnd.hook = predicted;
+        bnd.hook = address(hook);
         bnd.referenceAdapter = address(adapter);
         bnd.referenceSource = address(adapter);
         vault.revise(bnd);
