@@ -47,7 +47,7 @@ abstract contract DeploymentConfig is Script {
         }
     }
 
-    /// @notice Load an externally reviewed address and verify its expected runtime fingerprint.
+    /// @notice Parse a named address from the selected JSON object.
     function dependency(string memory json, string memory key) internal pure returns (address target) {
         target = vm.parseJsonAddress(json, string.concat(".", key));
     }
@@ -98,6 +98,12 @@ abstract contract DeploymentConfig is Script {
                 && c.id != 0,
             "deployment actor/run"
         );
+        if (vm.keyExistsJson(json, ".treasury") || vm.keyExistsJson(json, ".manager")) {
+            require(
+                dependency(json, "treasury") == c.treasury && dependency(json, "manager") == c.manager,
+                "configured parties"
+            );
+        }
         c.fixture = vm.parseJsonBool(json, ".fixtureAssets");
         c.faultDemo = vm.keyExistsJson(json, ".localFaultDemo") && vm.parseJsonBool(json, ".localFaultDemo");
         require(!c.faultDemo || (chain == 31337 && c.fixture), "local faults only");
@@ -112,6 +118,10 @@ abstract contract DeploymentConfig is Script {
             require(
                 vm.keyExistsJson(json, ".token0") && vm.keyExistsJson(json, ".adapter"),
                 "reviewed tokens and reference required"
+            );
+            require(
+                chain != 130 || (vm.keyExistsJson(json, ".treasury") && vm.keyExistsJson(json, ".manager")),
+                "reviewed parties required"
             );
             c.bindings.token0 = reviewed(json, "token0");
             c.bindings.token1 = reviewed(json, "token1");

@@ -1,5 +1,7 @@
 # C1 compiled selectors
 
+The [Foundry operations table](FOUNDRY-OPERATIONS.md#typed-operations) maps lifecycle rows to independently runnable typed Solidity methods. The deployment scripts use the factory, and `approveFunding(bool)` selects one exact funding allowance. The existing filtered reader handles the individual getters. Protocol-only classifications below apply to both operator suites.
+
 Baseline creation-bytecode digests use SHA-256, including compiler metadata. Getter entries are included. Each read row uses `make -s read TARGET=<contract> FUNCTION=<name>` with positional JSON `ARGS` when needed. Use targets `vault`, `hook`, `escrow`, `quote`, `token0` or `token1`, and `adapter` for the corresponding sections. Settlement context is a vault getter. Each lifecycle row uses the function name as `ACTION` with `make simulate` or `make act-local`. Fixed funding approvals use `approveA` and `approveB`. The fixture factory is used only by the deployment driver. See the [actor, bounds and manifest inputs](OPERATIONS.md).
 
 ## AgreementVault

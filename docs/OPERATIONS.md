@@ -1,5 +1,7 @@
 # C1 developer commands
 
+For the explicit Solidity network entry points, encrypted signer commands, typed lifecycle operations and mined receipt checks, use the [Foundry runbook](FOUNDRY-OPERATIONS.md).
+
 Use the pinned Linux tools and dependency checkout in the [setup instructions](../README.md#setup). Run commands from the repository root. `make help` groups targets by purpose. Target names use lowercase words separated by hyphens. `make` prints help. `make check` runs the full local suite sequentially, including four isolated mutation builds and fresh browser fixtures. Install the pinned viewer packages and Playwright browser first.
 
 ```sh

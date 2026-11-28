@@ -123,3 +123,40 @@ rehearse: ## Interaction | Run the Foundry purchase and closeout simulation agai
 	$(NET) rehearse
 check-actions: ## Interaction | Exercise reads, simulation, local sends and statement export on an owned chain.
 	$(PY) -u scripts/ops/checkLocal.py
+
+# The transport wrapper selects a single typed .s.sol function and reconciles Forge's journal.
+FORGE_SUITE = $(PY) -u scripts/ops/forgeSuite.py
+export ACTOR TERMS EXPECTED_STATE POSITION DEADLINE BOUNDS_CONFIG REFERENCE_CONFIG UNISON_TREASURY UNISON_MANAGER
+.PHONY: foundry-build foundry-config foundry-deploy-local foundry-rehearse foundry-fork foundry-verify foundry-action foundry-action-local foundry-action-broadcast
+.PHONY: foundry-preflight-sepolia foundry-preflight-mainnet foundry-simulate-local foundry-simulate-sepolia foundry-simulate-mainnet foundry-broadcast-sepolia foundry-broadcast-mainnet
+foundry-build: ## Foundry | Compile the deployment, fixture and typed interaction entry points and their runtime artifacts.
+	$(FORGE) build $(FLAGS) script/deploy/*.s.sol script/interact/*.s.sol script/fixtures/*.sol $(FIXTURES)
+foundry-config: ## Foundry | Run the selected network entry point's read-only Solidity preflight.
+	$(FORGE_SUITE) preflight
+foundry-deploy-local: override NETWORK = local
+foundry-deploy-local: ## Foundry | Mine DeployLocal on loopback Anvil with a fresh MANIFEST.
+	$(FORGE_SUITE) deploy
+foundry-preflight-sepolia foundry-simulate-sepolia foundry-broadcast-sepolia: override NETWORK = sepolia
+foundry-preflight-mainnet foundry-simulate-mainnet foundry-broadcast-mainnet: override NETWORK = mainnet
+foundry-simulate-local: override NETWORK = local
+foundry-preflight-sepolia foundry-preflight-mainnet: foundry-config
+foundry-simulate-local foundry-simulate-sepolia foundry-simulate-mainnet:
+	$(FORGE_SUITE) simulate
+foundry-broadcast-sepolia foundry-broadcast-mainnet:
+	@test -n "$$ACCOUNT" && { [[ "$$NETWORK:$$CONFIRM_CHAIN" == sepolia:1301 ]] || [[ "$$NETWORK:$$CONFIRM_CHAIN" == mainnet:130 ]]; }
+	$(FORGE_SUITE) deploy
+foundry-verify: ## Foundry | Verify chain receipts and execute VerifyDeployment.s.sol on a mined record.
+	$(FORGE_SUITE) verify
+foundry-action: ## Foundry | Simulate ACTION with ACTOR, RUN_ID, TERMS, POSITION, EXPECTED_STATE, DEADLINE and JSON ARGS.
+	$(FORGE_SUITE) action
+foundry-action-local: override NETWORK = local
+foundry-action-local: ## Foundry | Mine one typed action on the manifest's local Anvil.
+	$(FORGE_SUITE) send
+foundry-action-broadcast: ## Future submission | Send exactly one typed public operation using ACCOUNT and matching CONFIRM_CHAIN.
+	@test -n "$$ACCOUNT" && { [[ "$$NETWORK:$$CONFIRM_CHAIN" == sepolia:1301 ]] || [[ "$$NETWORK:$$CONFIRM_CHAIN" == mainnet:130 ]]; }
+	$(FORGE_SUITE) send
+foundry-rehearse: foundry-build ## Foundry | Run both complete mined lifecycle scenarios on owned local IPC chains.
+	$(PY) -u scripts/ops/forgeLifecycle.py local
+foundry-fork: foundry-build ## Foundry | Run script-driven lifecycle on the selected pinned public core through owned IPC.
+	@test "$$NETWORK" = mainnet || test "$$NETWORK" = sepolia
+	$(PY) -u scripts/ops/forgeLifecycle.py "$$NETWORK"

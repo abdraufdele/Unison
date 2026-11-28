@@ -4,7 +4,7 @@ import sys
 from types import SimpleNamespace
 from web3 import Web3
 from environment import ROOT, PRODUCT, contract, require, verifyRuntime
-from deployment import validateDeploymentBindings
+from deployment import deploymentArtifacts, validateDeploymentBindings
 
 sys.path.insert(0, str(ROOT / "scripts/viewer"))
 from statement import statement, wire
@@ -118,7 +118,11 @@ def readFunction(w, m, target, function, args):
     if target == "adapter":
         vault = contract(w, "AgreementVault", m["addresses"]["vault"])
         address = vault.functions.currentTerms().call(block_identifier=head.number).bindings.referenceAdapter
-    instance = contract(w, PRODUCT[target], address)
+    name = deploymentArtifacts(m).get(target, PRODUCT[target])
+    if m.get("workflow") == "forge-script" and target == "adapter" and address != m["addresses"]["adapter"]:
+        # Across a revision the sole guaranteed adapter getter is the C1 observation.
+        require(function == "observation", "revised adapter exposes C1 observation")
+    instance = contract(w, name, address)
     entries = [
         x
         for x in instance.abi

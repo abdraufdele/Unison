@@ -102,6 +102,11 @@ abstract contract DeploymentBase is Bindings {
         vm.stopBroadcast();
         verifyDraft(v, c);
         vm.serializeString("recipe", "addresses", vm.serializeAddress("addresses", "core", b.poolManager));
+        vm.serializeBytes32("hashes", "token0", b.token0.codehash);
+        vm.serializeBytes32("hashes", "token1", b.token1.codehash);
+        vm.serializeBytes32("hashes", "adapter", b.referenceAdapter.codehash);
+        vm.serializeBytes32("hashes", "source", b.referenceSource.codehash);
+        vm.serializeString("recipe", "hashes", vm.serializeBytes32("hashes", "core", b.poolManager.codehash));
         vm.serializeAddress("recipe", "token0", b.token0);
         vm.serializeAddress("recipe", "token1", b.token1);
         vm.serializeAddress("recipe", "adapter", b.referenceAdapter);
